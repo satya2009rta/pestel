@@ -64,12 +64,7 @@ int main(int argc, char* argv[]) {
             /* compute the winning set */
             int windom_size;
             auto t1 = std::chrono::high_resolution_clock::now();
-            if (method == "N"){
-                windom_size = G.solve_gen_parity().first.size();
-            }
-            else{
-                windom_size = G.gen_zielonka().first.size();
-            }
+            windom_size = G.solve_gen_parity().first.size();
             auto t2 = std::chrono::high_resolution_clock::now();
             auto standard_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
             print_method(method, windom_size, G.n_vert_, standard_time);

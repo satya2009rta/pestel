@@ -8,13 +8,13 @@ CFLAGS 	= -O3 -DNDEBUG
 
 
 ## OpenMP compiler and flags for linux
-# MPCC 		= g++
-# MPFLAGS	= -fopenmp
+MPCC 		= g++
+MPFLAGS	= -fopenmp
 
 
 # OpenMP compiler and flags for mac
-MPCC		= /opt/homebrew/opt/llvm/bin/clang++
-MPFLAGS		= -I/opt/homebrew/opt/llvm/include -fopenmp -L/opt/homebrew/opt/llvm/lib
+# MPCC		= /opt/homebrew/opt/llvm/bin/clang++
+# MPFLAGS		= -I/opt/homebrew/opt/llvm/include -fopenmp -L/opt/homebrew/opt/llvm/lib
 
 
 # # No OpenMP

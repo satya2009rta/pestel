@@ -509,90 +509,90 @@ public:
     ///////////////////////////////////////////////////////////////
     ///Solve generalized parity games using GenZielonka
     ///////////////////////////////////////////////////////////////
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> gen_zielonka() const {
-        mpa::MultiGame copy(*this);
-        copy.complement();
-        std::vector<size_t> maxValues;
-        for (size_t i = 0; i < n_games_; i++){
-            maxValues.push_back(max_odd(all_colors_[i]));
-        }
-        return copy.disj_parity_win(maxValues, 0);
-    }
+    // std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> gen_zielonka() const {
+    //     mpa::MultiGame copy(*this);
+    //     copy.complement();
+    //     std::vector<size_t> maxValues;
+    //     for (size_t i = 0; i < n_games_; i++){
+    //         maxValues.push_back(max_odd(all_colors_[i]));
+    //     }
+    //     return copy.disj_parity_win(maxValues, 0);
+    // }
 
-    void complement(){
-        for (size_t v = 0; v < n_vert_; v++){
-            for (size_t i = 0; i < n_games_; i++){
-                all_colors_[i].at(v) += 1;
-            }
-        }
-        max_color_ += 1;
-    }
+    // void complement(){
+    //     for (size_t v = 0; v < n_vert_; v++){
+    //         for (size_t i = 0; i < n_games_; i++){
+    //             all_colors_[i].at(v) += 1;
+    //         }
+    //     }
+    //     max_color_ += 1;
+    // }
 
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> disj_parity_win(const std::vector<size_t> maxValues, const int u){
-        /* sanity check: max value of each priority to be odd! */
-        for (size_t i = 0; i < n_games_; i++){
-            if (maxValues[i] % 2 == 0){
-                std::cerr << "Error::disj_parity_win: maxValues are not all odd \n";
-            }
-        }
+    // std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> disj_parity_win(const std::vector<size_t> maxValues, const int u){
+    //     /* sanity check: max value of each priority to be odd! */
+    //     for (size_t i = 0; i < n_games_; i++){
+    //         if (maxValues[i] % 2 == 0){
+    //             std::cerr << "Error::disj_parity_win: maxValues are not all odd \n";
+    //         }
+    //     }
 
-        if (maxValues == std::vector<size_t>(n_games_,1) || vertices_.empty()){
-            return std::make_pair(vertices_, std::unordered_set<size_t>{});
-        }
-        MultiGame G1;
-        MultiGame H1;
-        for (size_t i = 0; i < n_games_; i++){
-            if (maxValues[i] != 1){
-                auto attMaxOdd = solve_reachability_game(i_priority_node_function_j(maxValues[i],i), {V0});
+    //     if (maxValues == std::vector<size_t>(n_games_,1) || vertices_.empty()){
+    //         return std::make_pair(vertices_, std::unordered_set<size_t>{});
+    //     }
+    //     MultiGame G1;
+    //     MultiGame H1;
+    //     for (size_t i = 0; i < n_games_; i++){
+    //         if (maxValues[i] != 1){
+    //             auto attMaxOdd = solve_reachability_game(i_priority_node_function_j(maxValues[i],i), {V0});
                 
-                G1.copy(subgame(attMaxOdd.second));
-                auto attMaxEven = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
+    //             G1.copy(subgame(attMaxOdd.second));
+    //             auto attMaxEven = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
                 
-                H1.copy(G1.subgame(attMaxEven.second));
+    //             H1.copy(G1.subgame(attMaxEven.second));
                 
-                while (true){
-                    std::vector<size_t> copy_maxValues = maxValues;
-                    copy_maxValues[i] -= 2;
+    //             while (true){
+    //                 std::vector<size_t> copy_maxValues = maxValues;
+    //                 copy_maxValues[i] -= 2;
 
-                    /* sanity check */
-                    if (copy_maxValues[i] < 0 || copy_maxValues[i] != maxValues[i]-2){
-                        std::cout << "Error::disj_parity_win: copy_maxValues is not correct. \n";
-                    }
+    //                 /* sanity check */
+    //                 if (copy_maxValues[i] < 0 || copy_maxValues[i] != maxValues[i]-2){
+    //                     std::cout << "Error::disj_parity_win: copy_maxValues is not correct. \n";
+    //                 }
 
-                    auto W1 = H1.disj_parity_win(copy_maxValues, u+1);
+    //                 auto W1 = H1.disj_parity_win(copy_maxValues, u+1);
                     
-                    if (G1.n_vert_ == 0 || W1.second.size() == H1.n_vert_){
-                        if (W1.second.size() == H1.n_vert_ && G1.n_vert_ > 0){
-                            auto B = solve_reachability_game(G1.vertices_, {V1});
+    //                 if (G1.n_vert_ == 0 || W1.second.size() == H1.n_vert_){
+    //                     if (W1.second.size() == H1.n_vert_ && G1.n_vert_ > 0){
+    //                         auto B = solve_reachability_game(G1.vertices_, {V1});
                             
-                            MultiGame newGame(subgame(B.second));
-                            return newGame.disj_parity_win(maxValues, u+1);
-                        }
-                        else{
-                            break;
-                        }
-                    }
+    //                         MultiGame newGame(subgame(B.second));
+    //                         return newGame.disj_parity_win(maxValues, u+1);
+    //                     }
+    //                     else{
+    //                         break;
+    //                     }
+    //                 }
 
-                    auto T = G1.solve_reachability_game(W1.first, {V0});
-                    G1.remove_vertices(T.second);
-                    auto E = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
+    //                 auto T = G1.solve_reachability_game(W1.first, {V0});
+    //                 G1.remove_vertices(T.second);
+    //                 auto E = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
                     
-                    H1.copy(G1.subgame(E.second));
-                }
-            }
-        }
-        return std::make_pair(vertices_, std::unordered_set<size_t>{});
-    }
+    //                 H1.copy(G1.subgame(E.second));
+    //             }
+    //         }
+    //     }
+    //     return std::make_pair(vertices_, std::unordered_set<size_t>{});
+    // }
 
-    std::unordered_set<size_t> i_priority_node_function_j(size_t i, size_t j){
-        std::unordered_set<size_t> result;
-        for (auto v : vertices_){
-            if (all_colors_[j].at(v) == i){
-                result.insert(v);
-            }
-        }
-        return result;
-    }
+    // std::unordered_set<size_t> i_priority_node_function_j(size_t i, size_t j){
+    //     std::unordered_set<size_t> result;
+    //     for (auto v : vertices_){
+    //         if (all_colors_[j].at(v) == i){
+    //             result.insert(v);
+    //         }
+    //     }
+    //     return result;
+    // }
 
     
 
