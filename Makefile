@@ -24,7 +24,7 @@ MPFLAGS	= -fopenmp
 ####################
 # project root
 ####################
-PRJROOT		= ./tool
+PRJROOT		= .
 LIBINC		= -I$(PRJROOT)/lib
 SRC			= $(PRJROOT)/src
 BASH		= $(PRJROOT)/bash-scripts
@@ -46,11 +46,8 @@ HOA2PGSRC 	= $(HOA2PG)/hoalexer.c $(HOA2PG)/hoaparser.c $(HOA2PG)/simplehoa.c $(
 
 TARGET = folder compute compose hoa2pg solveParity solveGenParity pg2gpg pg2randgpg compare compareIncr solvePUF conflictsPUF
 
-BENCHMARK = run-benchmark-A run-benchmark-B1 run-benchmark-B2 run-benchmark-P run-benchmark-Q
-
 all: $(TARGET)
 build: $(TARGET)
-benchmark: $(BENCHMARK)
 
 folder:
 	[ -d $(BUILD) ] || mkdir -p $(BUILD)
@@ -91,20 +88,3 @@ conflictsPUF:
 
 clean:
 	rm -r -f  $(BUILD)/*
-
-gen-benchmark-A:
-	bash $(BASH)/benchmarkA.sh
-gen-benchmark-B:
-	bash $(BASH)/benchmarkB.sh
-gen-benchmark-P:
-	bash $(BASH)/benchmarkP.sh
-run-benchmark-A:
-	bash $(BASH)/compare.sh "./benchmarks/benchmarkA" "benchmark-A"
-run-benchmark-B1:
-	bash $(BASH)/compare.sh "./benchmarks/benchmarkB" "benchmark-B1"
-run-benchmark-B2:
-	bash $(BASH)/compareIncr.sh "./benchmarks/benchmarkB" "benchmark-B2"
-run-benchmark-P:
-	bash $(BASH)/solvePUF.sh "./benchmarks/benchmarkP" "benchmark-P"
-run-benchmark-Q:
-	bash $(BASH)/conflictsPUF.sh "./benchmarks/benchmarkQ" "benchmark-Q"
