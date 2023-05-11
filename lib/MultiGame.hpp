@@ -497,6 +497,12 @@ public:
         
         winning_region = recursive_gen_parity_add_spec(iterate-1, colive_edge_set, live_group_set);
         /* now add the last set of color and solve game using pre-computed template */
+        auto colors2 = colors;
+        colors.clear();
+        for (auto v : winning_region.first){/* restrict the colors to winning vertices only */
+            colors[v] = colors2[v];
+        }
+
         all_colors_.push_back(colors);
         n_games_ += 1;
         remove_vertices(winning_region.second);
