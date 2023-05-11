@@ -1,12 +1,12 @@
 # PeSTel-**Pe**rmissive-**S**trategy-**Te**mp**l**ate
 
-PeSTel is a tool for computing strategy templates for two player graph games with generalized parity objective, i.e., finite conjunction of parity objectives.
+PeSTel is a tool for computing strategy templates for two player graph games with generalized parity objective, i.e., finite conjunction of parity objectives, presented in the paper [Synthesizing Permissive Winning Strategy Templates for Parity Games](https://www.mpi-sws.org/tr/2023-001.pdf) (CAV'23).
 
 ## Requirements
 
 - <a href='https://gcc.gnu.org/install/'>GCC</a>
 - <a href='https://www.openmp.org/'>OpenMP</a>
-- <a href='https://www.python.org/download/releases/2.7/'>Python2</a> (optional, only if you want to use GenZiel tool)
+- <a href='https://www.python.org/download/releases/2.7/'>Python2</a> (optional, install only if you want to use GenZiel tool)
 
 ## Installation
 
