@@ -38,3 +38,11 @@ init = ""
 if 0 in W0:
     init = " (INIT)"
 print "#winning_vertices:"+str(len(W0))+"/"+str(len(W0)+len(W1))+init
+
+
+
+import file_handler as io
+import generalized_zielonka_with_partials as genpartial
+g = io.load_generalized_from_file(<gpg_file_path>)
+W0, W1 = genpartial.generalized_with_psolB(g)
+print(len(W0))

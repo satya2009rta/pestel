@@ -407,12 +407,12 @@ mpa::Game hoa2game(const std::string filename){
 }
 
 /*! read a game in pgsolver format from a file and convert it to normal game
- * \param[in] filename  Name of the file
+ * \param[in] file  filestream or Name of the file
  * \param[out] N     Number of vertices
  * \param[out] V_ID  Vector containing owner of the vertices
  * \param[out] TR_final    Transition vector
  * \param[out] COL   Vector of colors */
-int pg2game(const std::string& filename,
+int pg2game(std::istream& file,
                 size_t& N,
                 std::vector<size_t>& V_ID,
                 std::vector<std::unordered_set<size_t>>& TR_final,
@@ -421,9 +421,6 @@ int pg2game(const std::string& filename,
     std::vector<std::unordered_set<size_t>> TR;
     std::vector<size_t> ICOL;
     size_t max_col=0;
-    std::ifstream file;
-    file.open(filename);
-    if (file.is_open()) {
         std::string line;
         /* go through all the lines until a match with arr_name is found */
         while(std::getline(file,line)) {
@@ -468,7 +465,6 @@ int pg2game(const std::string& filename,
             }
             TR.push_back(trans_list);
         }
-        file.close();
         for (auto it = TR.begin(); it != TR.end(); ++ it){
             std::unordered_set<size_t> trans_list;
             std::unordered_set<size_t> set = *it;
@@ -481,26 +477,27 @@ int pg2game(const std::string& filename,
             // COL = ICOL; /* buchi ehoa to buchi pgsolver */
         // }
         return 1;
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:pg2game: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
+}
+int pg2game(const std::string& filename,
+                size_t& N,
+                std::vector<size_t>& V_ID,
+                std::vector<std::unordered_set<size_t>>& TR_final,
+                std::vector<size_t>& COL){
+
+    std::ifstream file(filename);
+    return pg2game(file,N,V_ID,TR_final,COL);
 }
 
 
 
 /*! read a generalized parity game in gpgsolver format from a file and convert it to normal game
- * \param[in] filename  Name of the file
+ * \param[in] file  filestream or Name of the file
  * \param[out] N     Number of vertices
  * \param[out] V_ID  Vector containing owner of the vertices
  * \param[out] TR_final    Transition vector
  * \param[out] N_GAME   Number of games
  * \param[out] ALL_COL   Vectors of all colors */
-int gpg2game(const std::string& filename,
+int gpg2game(std::istream& file,
                 size_t& N,
                 std::vector<size_t>& V_ID,
                 std::vector<std::unordered_set<size_t>>& TR_final,
@@ -508,9 +505,6 @@ int gpg2game(const std::string& filename,
                 std::vector<std::vector<size_t>>& ALL_COL){
     std::vector<size_t> V_name;
     std::vector<std::unordered_set<size_t>> TR;
-    std::ifstream file;
-    file.open(filename);
-    if (file.is_open()) {
         std::string line;
         /* go through all the lines until a match with arr_name is found */
         while(std::getline(file,line)) {
@@ -574,7 +568,6 @@ int gpg2game(const std::string& filename,
             }
             TR.push_back(trans_list);
         }
-        file.close();
         for (auto it = TR.begin(); it != TR.end(); ++ it){
             std::unordered_set<size_t> trans_list;
             std::unordered_set<size_t> set = *it;
@@ -584,15 +577,18 @@ int gpg2game(const std::string& filename,
             TR_final.push_back(trans_list);
         }
         return 1;
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:pg2game: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
 }
+int gpg2game(const std::string& filename,
+                size_t& N,
+                std::vector<size_t>& V_ID,
+                std::vector<std::unordered_set<size_t>>& TR_final,
+                size_t& N_GAME,
+                std::vector<std::vector<size_t>>& ALL_COL){
+        std::ifstream file(filename);
+        return gpg2game(file,N,V_ID,TR_final,N_GAME,ALL_COL);
+}
+
+
 
 /*! read a generalized parity game in standard format from a file and convert it to normal game
  * \param[in] filename  Name of the file

@@ -593,12 +593,12 @@ public:
      *
      * print out all elements of the set*/
     void print_set (const std::unordered_set<size_t> set, const std::string note = "set") const {
-        std::cout << "\n" << note << ": ";
+        std::cout << "\n" << note << ":\n";
         for (auto u=set.begin(); u != set.end();){
             std::cout << *u;
             ++u;
             if (u != set.end())
-                std::cout << ", ";
+                std::cout << ",";
         }
         std::cout << "\n";
     }
@@ -638,7 +638,7 @@ public:
                             counter += 1;
                         }
                         else{
-                            std::cout << ", " <<"("<< v->first << " -> " << u<<")";
+                            std::cout << "," <<"("<< v->first << " -> " << u<<")";
                         }
                     }
                 }

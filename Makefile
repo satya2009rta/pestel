@@ -8,8 +8,8 @@ CFLAGS 	= -O3 -DNDEBUG
 
 
 ## OpenMP compiler and flags for linux
-MPCC 		= g++
-MPFLAGS	= -fopenmp
+# MPCC 		= g++
+# MPFLAGS	= -fopenmp
 
 
 # OpenMP compiler and flags for mac
@@ -18,8 +18,8 @@ MPFLAGS	= -fopenmp
 
 
 # # No OpenMP
-# MPCC 		= g++
-# MPFLAGS		=
+MPCC 		= g++
+MPFLAGS		=
 
 ####################
 # project root

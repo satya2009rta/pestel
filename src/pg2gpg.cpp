@@ -17,20 +17,23 @@
 
 int main(int argc, char* argv[]) {
     try {
-        /* sanity check: input filename should be provided by the user */
-        if (argc <= 1) {
-            throw std::runtime_error("Too few input arguments.\n");
-        }
-        /* read filename */
-        std::string filename(argv[1]);
+        /* variables for game */
         size_t N;
         std::vector<size_t> V_ID;
         std::vector<std::unordered_set<size_t>> TR;
         std::vector<size_t> COL;
         mpa::MultiGame G;
-        
-        /* covert pgsolver format to normal game */
-        pg2game(filename, N, V_ID, TR, COL);
+
+        if (argc <= 1) {
+            pg2game(std::cin, N, V_ID, TR, COL);
+        }
+        else{
+            /* read filename */
+            std::string filename(argv[1]);
+            
+            /* covert pgsolver format to normal game */
+            pg2game(filename, N, V_ID, TR, COL);
+        }
         
         /* construct the game */
         G.mergeGame(mpa::Game(N, V_ID, TR, COL));
