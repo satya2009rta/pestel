@@ -105,7 +105,7 @@ def monotone_attractor(g, target_set, color, func):
     return W, Wbis
 
 
-def even_tuples_iterator(depth, priorities, sizes, li, k, t):
+def tuples_iterator(depth, priorities, sizes, li, k, t):
     """
     Iterate over the k-uples consisting of even priorities.
     :param depth:
@@ -134,7 +134,7 @@ def even_tuples_iterator(depth, priorities, sizes, li, k, t):
         for i in range(t, k):
             li[i] += 1
             if not li[i] >= sizes[i]:
-                for j in even_tuples_iterator(depth - 1, priorities, sizes, li, k, i):
+                for j in tuples_iterator(depth - 1, priorities, sizes, li, k, i):
                     yield j
             li[i] -= 1
 
@@ -260,9 +260,9 @@ def psolB_generalized(g, W1, W2):
         # call after handling 5 and 3).
 
         # TODO if we have gone trough the whole list for each function, player 2 wins ? i.e. index is list size for each
-        # TODO bug : sometimes there are no even priorities according to some function : even_tuples_iterator bugs
+        # TODO bug : sometimes there are no even priorities according to some function : tuples_iterator bugs
         # go through every k-uple of even priorities in the current level
-        for kuple in even_tuples_iterator(depth, even_priorities, even_sizes, [0] * nbr_func, nbr_func, 0):
+        for kuple in tuples_iterator(depth, even_priorities, even_sizes, [0] * nbr_func, nbr_func, 0):
 
             if DEBUG_PRINT: print("     " + str(kuple))
 
@@ -317,10 +317,10 @@ def psolB_generalized(g, W1, W2):
     return g, W1, W2
 
 
-def psolB_generalized_inline(g, W1, W2):
+def psolB_generalized_inline(g, W1, W2, inverted=False):
     """
     Adaptation of partial solver psolB for generalized parity games. This implementation uses inline version of
-    generalized buchi inter safety games.
+    generalized buchi inter safety games. inverted true means we record odd priorities instead of even ones
     :param g: a game graph.
     :return: a partial solution g', W1', W2' in which g is an unsolved subgame of g and W1', W2' are included in the
     two respective winning regions of g.
@@ -347,7 +347,7 @@ def psolB_generalized_inline(g, W1, W2):
     for func in range(nbr_func):
         # TODO we transform into set to remove duplicate, might check itertools, ordered dicts and heaps also
         priorities[func] = sorted(set(priorities[func]), reverse=True)  # change into set to remove duplicates and sort
-        even_priorities[func] = filter(lambda x: x % 2 == 0, priorities[func])
+        even_priorities[func] = filter(lambda x: x % 2 == inverted, priorities[func])
 
         # if there are no even priorities according to one of the functions, the game is completely won by player 1
         # return empty game and all nodes added to W2
@@ -366,7 +366,7 @@ def psolB_generalized_inline(g, W1, W2):
 
     if DEBUG_PRINT:
         print("priorities " + str(priorities))
-        print("even priorities " + str(even_priorities))
+        print(("even priorities "+str(even_priorities)) if not inverted else ("odd priorities "+str(even_priorities)))
         print("sizes " + str(sizes))
         print("depth " + str(depth))
         print("max_size " + str(max_size))
@@ -387,7 +387,7 @@ def psolB_generalized_inline(g, W1, W2):
             if DEBUG_PRINT: print("     function " + str(i))
 
             # while we can advance in the list and we encounter an odd priority, we consider it
-            while indexes[i] < sizes[i] and priorities[i][indexes[i]] % 2 == 1:
+            while indexes[i] < sizes[i] and priorities[i][indexes[i]] % 2 == (not inverted):
 
                 if DEBUG_PRINT:
                     print("           index " + str(indexes[i]) + " element " + str(priorities[i][indexes[i]]))
@@ -419,7 +419,7 @@ def psolB_generalized_inline(g, W1, W2):
 
                         W2.extend(att)
 
-                        return psolB_generalized_inline(g.subgame(complement), W1, W2)
+                        return psolB_generalized_inline(g.subgame(complement), W1, W2, inverted)
 
                     else:
                         target_set = target_set.intersection(MA)
@@ -439,9 +439,9 @@ def psolB_generalized_inline(g, W1, W2):
         # call after handling 5 and 3).
 
         # TODO if we have gone trough the whole list for each function, player 2 wins ? i.e. index is list size for each
-        # TODO bug : sometimes there are no even priorities according to some function : even_tuples_iterator bugs
+        # TODO bug : sometimes there are no even priorities according to some function : tuples_iterator bugs
         # go through every k-uple of even priorities in the current level
-        for kuple in even_tuples_iterator(depth, even_priorities, even_sizes, [0] * nbr_func, nbr_func, 0):
+        for kuple in tuples_iterator(depth, even_priorities, even_sizes, [0] * nbr_func, nbr_func, 0):
 
             if DEBUG_PRINT: print("     " + str(kuple))
 
@@ -460,11 +460,11 @@ def psolB_generalized_inline(g, W1, W2):
                     prio = g.get_node_priority_function_i(nod, f)
 
                     if DEBUG_PRINT:
-                        print("          " + str(prio))
-                        print("          " + str(prio % 2 == 1) + " " + str(prio > kuple[f - 1]))
+                        print("          " + str(prio) + " inverted=" + inverted)
+                        print("          " + str(prio % 2 == (not inverted)) + " " + str(prio > kuple[f - 1]))
 
                     # priority is odd and greater than the corresponding one in the k-uple, we want to avoid the node
-                    if prio % 2 == 1 and prio > kuple[f - 1]:
+                    if prio % 2 == (not inverted) and prio > kuple[f - 1]:
                         flag = True
                     # else if the priority is the one we want to see, add it to the set to be visited infinitely often
                     elif prio == kuple[f - 1]:
@@ -489,11 +489,12 @@ def psolB_generalized_inline(g, W1, W2):
             if len(win) != 0:
                 att2, comp = attractor(g, win, 0)
                 W1.extend(att2)
-                return psolB_generalized_inline(g.subgame(comp), W1, W2)
+                return psolB_generalized_inline(g.subgame(comp), W1, W2, inverted)
 
         depth += 1
 
     return g, W1, W2
+
 
 
 """
