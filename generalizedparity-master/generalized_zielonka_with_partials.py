@@ -35,7 +35,7 @@ def generalized_parity_solver_with_partial_preprocessing(g, partial_solver):
     :return: the solution in the following format : (W_0, W_1).
     """
 
-    rest, W0, W1 = partial_solver(g, [], []) # call to the partial solver
+    rest, W0, W1 = partial_solver(g, [], [], inverted=False)  # call to the partial solver
 
     if len(rest.nodes) == 0:
         return W0, W1
@@ -110,15 +110,13 @@ def generalized_parity_solver_with_partial(g, partial_solver):
     :return: the solution in the following format : (W_0, W_1).
     """
 
-    rest, W0, W1 = partial_solver(g, [], [])  # call to the partial solver
-
-    if len(rest.nodes) == 0:
-        return W0, W1
+    if len(g.nodes) == 0:
+        return [], []
 
     # nbr of functions is the length of the descriptor minus 1 (because the descriptor contains the player)
-    nbrFunctions = len(rest.get_nodes_descriptors()[rest.get_nodes()[0]]) - 1
+    nbrFunctions = len(g.get_nodes_descriptors()[g.get_nodes()[0]]) - 1
     # Transforming the game
-    transformed = transform_game(rest, nbrFunctions)
+    transformed = transform_game(g, nbrFunctions)
     # Initializing the max values list
     maxValues = [0] * nbrFunctions
 
@@ -138,10 +136,8 @@ def generalized_parity_solver_with_partial(g, partial_solver):
             maxValues[i] += 1
 
     # call to classical disj parity win
-    W0_bis, W1_bis = disj_parity_win_with_partial(transformed, maxValues, nbrFunctions, 0, partial_solver)
-    W0.extend(W0_bis)
-    W1.extend(W1_bis)
-    return W0, W1
+    return disj_parity_win_with_partial(transformed, maxValues, nbrFunctions, 0, partial_solver)
+
 
 def disj_parity_win_with_partial(g, maxValues, k, u, partial):
     """
@@ -156,18 +152,18 @@ def disj_parity_win_with_partial(g, maxValues, k, u, partial):
              (for the original game, without complement)
     """
 
-    rest, W0, W1 = partial(g, [], [])  # call to the partial solver
+    # Base case : all maxValues are 1 or the game is empty
+    if all(value == 1 for value in maxValues) or len(g.get_nodes()) == 0:
+        return g.get_nodes(), []
+
+    rest, W0_partial, W1_partial = partial(g, [], [], inverted=True)  # call to the partial solver
 
     if len(rest.nodes) == 0:
-        return W0, W1
+        return W0_partial, W1_partial
 
     # For the correctness argument to work, and for the base case too,
     # we need the max value of each priority to be odd!
     assert(all(m % 2 == 1 for m in maxValues))
-
-    # Base case : all maxValues are 1 or the game is empty
-    if all(value == 1 for value in maxValues) or len(rest.get_nodes()) == 0:
-        return rest.get_nodes(), []
 
     # FIXME: the code below is a hacked base case, remove it when the bug is
     # fixed. Clement added this condition, which states that if there is only
@@ -226,9 +222,10 @@ def disj_parity_win_with_partial(g, maxValues, k, u, partial):
                 # end of sanity check
                 W1, W2 = disj_parity_win_with_partial(rest.subgame(compl_B), maxValues, k, u + 1, partial)
                 B.extend(W2)
-                return W1, B
 
-    return rest.get_nodes(), []
+                return W1 + W0_partial, B + W1_partial
+
+    return W0_partial + rest.get_nodes(), W1_partial
 
 
 def generalized_zielonka_with_psol(g):

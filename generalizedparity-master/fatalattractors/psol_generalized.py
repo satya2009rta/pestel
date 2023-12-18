@@ -217,9 +217,10 @@ def monotone_attractor_player1(g, node, function):
     return W, Wbis
 
 
-def psol_generalized(g, W1, W2):
+def psol_generalized(g, W1, W2, inverted=False):
     """
     Adaptation of psol partial solver to generalized parity games.
+    inverted true means we record odd priorities instead of even ones
     :param g: a game graph.
     :return: a partial solution g', W1', W2' in which g is an unsolved subgame of g and W1', W2' are included in the
     two respective winning regions of g.
@@ -236,7 +237,7 @@ def psol_generalized(g, W1, W2):
         for i in range(1, len(info)):
 
             # one of the priorities is odd
-            if info[i] % 2 == 1:
+            if info[i] % 2 == (not inverted):
 
                 found_odd = True
 
@@ -256,7 +257,7 @@ def psol_generalized(g, W1, W2):
 
                     W2.extend(att)
 
-                    return psol_generalized(g.subgame(complement), W1, W2)
+                    return psol_generalized(g.subgame(complement), W1, W2, inverted)
 
         # if we get here, then every priority is even or none of the computed attractors are fatal
 
@@ -275,6 +276,6 @@ def psol_generalized(g, W1, W2):
 
                 W1.extend(att)
 
-                return psol_generalized(g.subgame(complement), W1, W2)
+                return psol_generalized(g.subgame(complement), W1, W2, inverted)
 
     return g, W1, W2

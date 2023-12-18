@@ -8,9 +8,10 @@ from graph import Graph
 DEBUG_PRINT = False
 
 
-def psolQ_generalized(g, W1, W2):
+def psolQ_generalized(g, W1, W2, inverted=False):
     """
     Adaptation of partial solver psolQ for generalized parity games.
+    inverted true means we record odd priorities instead of even ones
     :param g: a game graph.
     :return: a partial solution g', W1', W2' in which g is an unsolved sub-game of g and W1', W2' are included in the
     two respective winning regions of g.
@@ -38,7 +39,7 @@ def psolQ_generalized(g, W1, W2):
     for func in range(nbr_func):
         # TODO we transform into set to remove duplicate, might check itertools, ordered dicts and heaps also
         priorities[func] = sorted(set(priorities[func]), reverse=True)  # change into set to remove duplicates and sort
-        even_priorities[func] = filter(lambda x: x % 2 == 0, priorities[func])  # keep the sorted even priorities
+        even_priorities[func] = filter(lambda x: x % 2 == inverted, priorities[func])  # keep the sorted even priorities
 
         # if there are no even priorities according to one of the functions, the game is completely won by player 1
         # return empty game and all nodes added to W2
@@ -57,7 +58,7 @@ def psolQ_generalized(g, W1, W2):
     if DEBUG_PRINT:
         print("Priorities " + str(priorities))
         print("Sizes " + str(sizes))
-        print("Even priorities " + str(even_priorities))
+        print(("Even" if not inverted else "Odd") + " priorities " + str(even_priorities))
         print("Even sizes " + str(even_sizes))
 
     # TODO instead of doing as above, go through nodes in iterator order and for each node add priorities to the list
@@ -75,7 +76,7 @@ def psolQ_generalized(g, W1, W2):
             if DEBUG_PRINT: print("     odd : function " + str(i))
 
             # while we can advance in the list and we encounter an odd priority, we consider it
-            while indexes[i] < sizes[i] and priorities[i][indexes[i]] % 2 == 1:
+            while indexes[i] < sizes[i] and priorities[i][indexes[i]] % 2 == (not inverted):
 
                 if DEBUG_PRINT:
                     print("           odd : index " + str(indexes[i]) + " element " + str(priorities[i][indexes[i]]))
@@ -108,7 +109,7 @@ def psolQ_generalized(g, W1, W2):
 
                         W2.extend(att)
 
-                        return psolQ_generalized(g.subgame(complement), W1, W2)
+                        return psolQ_generalized(g.subgame(complement), W1, W2, inverted)
 
                     else:
                         target_set = target_set.intersection(MA)
@@ -158,7 +159,7 @@ def psolQ_generalized(g, W1, W2):
         # nodes which don't respect this cannot be used as targets
         # TODO this seems weird compared to PSOLQ
         potential_nodes = set(filter(lambda z: all(
-            g.nodes[z][u + 1] % 2 == 0 or g.nodes[z][u + 1] <= current_priorities[u] for u in range(nbr_func)),
+            g.nodes[z][u + 1] % 2 == inverted or g.nodes[z][u + 1] <= current_priorities[u] for u in range(nbr_func)),
                                      g.nodes.iterkeys()))
 
         if DEBUG_PRINT: print("Potential nodes larger than" + str(current_priorities) + " : " + str(potential_nodes))
@@ -173,7 +174,7 @@ def psolQ_generalized(g, W1, W2):
 
             # create the layered attractor, with the even priorities and the even indexes (to compute every layer)
             # and the potential nodes to consider. Yields the layered attractor and the star nodes of the last layer
-            MA, rest, star = layered_attractor(g, even_priorities, even_indexes, potential_nodes)
+            MA, rest, star = layered_attractor(g, even_priorities, even_indexes, potential_nodes, inverted)
 
             # if the potential nodes v are subset of the star, then (v, M(v)) is in the attractor for each target v
             # making it fatal
@@ -192,7 +193,7 @@ def psolQ_generalized(g, W1, W2):
                     print("TEMP W2 " + str(W2))
                     print("TEMP REST " + str(complement))
 
-                return psolQ_generalized(g.subgame(complement), W1, W2)
+                return psolQ_generalized(g.subgame(complement), W1, W2, inverted)
 
             else:
                 potential_nodes = potential_nodes.intersection(star)
@@ -205,7 +206,7 @@ def psolQ_generalized(g, W1, W2):
     return g, W1, W2
 
 
-def layered_attractor(g, even_priorities, even_indexes, candidates):
+def layered_attractor(g, even_priorities, even_indexes, candidates, inverted=False):
     """
     Computes the layered attractor.
     :param g: a game graph.
@@ -249,11 +250,11 @@ def layered_attractor(g, even_priorities, even_indexes, candidates):
 
         if DEBUG_PRINT: print("     current priorities" + str(current_priorities))
 
-        target = create_target_set(g, current_priorities, candidates)
+        target = create_target_set(g, current_priorities, candidates, inverted)
 
         if DEBUG_PRINT: print("     target" + str(target))
 
-        a, not_a = permissive_monotone_attractor(g, v_star, target, current_priorities)
+        a, not_a = permissive_monotone_attractor(g, v_star, target, current_priorities, inverted)
 
         # Once a layer a has been computed, check which candidate (i.e. targets) have their (v, M(v)) in that layer.
         # it can happen that a candidate is not in a target but has its (v, M(v)) in the layer TODO check correctness
@@ -273,7 +274,7 @@ def layered_attractor(g, even_priorities, even_indexes, candidates):
     return a, not_a, v_star
 
 
-def create_target_set(game, priorities, candidates):
+def create_target_set(game, priorities, candidates, inverted=False):
     """
     Create the target set for a specific layer.
     :param game: a game graph.
@@ -287,7 +288,7 @@ def create_target_set(game, priorities, candidates):
         # nodes with priority larger than what we want to see and odd won't be added to attractor for this layer and we
         # don't want to go to them as it breaks the condition of what we want to see. It follows that they should not
         # be targets. TODO does this influence the fixpoint computation
-        if all(game.nodes[node][i + 1] % 2 == 0 or game.nodes[node][i + 1] <= priorities[i] for i in range(nbr_func)):
+        if all(game.nodes[node][i + 1] % 2 == inverted or game.nodes[node][i + 1] <= priorities[i] for i in range(nbr_func)):
             target.append((node, tuple([True] * nbr_func)))  # TODO create tuple properly
     return target
 
@@ -303,7 +304,7 @@ def init_memory(g, nf, current_priorities):
     return (nf, tuple([g.nodes[nf][i + 1] >= current_priorities[i] for i in range(g.get_nbr_priority_functions())]))
 
 
-def create_predecessors(g, node, priorities, v_star):
+def create_predecessors(g, node, priorities, v_star, inverted=False):
     """
     Create the predecessors of node (v, M), given the current priorities and the current v_star.
     :param g: a game graph.
@@ -321,9 +322,9 @@ def create_predecessors(g, node, priorities, v_star):
         if not pre in v_star:
             ok = True
             for i in range(len(priorities)):
-                if (g.nodes[pre][i + 1] % 2 == 1 and g.nodes[pre][i + 1] >= priorities[i]) or (
+                if (g.nodes[pre][i + 1] % 2 == (not inverted) and g.nodes[pre][i + 1] >= priorities[i]) or (
                                 (not node[1][i]) and g.nodes[pre][i + 1] >= priorities[i] and g.nodes[pre][
-                                i + 1] % 2 == 0):
+                                i + 1] % 2 == inverted):
                     ok = False
                     break
             if ok:
@@ -340,10 +341,10 @@ def create_predecessors(g, node, priorities, v_star):
         for i in range(nbr_func):
             if total[i]:
                 prio_nod = g.get_node_priority_function_i(nod, i + 1)
-                if prio_nod >= priorities[i] and prio_nod % 2 == 0:
+                if prio_nod >= priorities[i] and prio_nod % 2 == inverted:
                     partial[i] = True
                 elif g.get_node_priority_function_i(actual_node, i + 1) < priorities[
-                    i] or g.get_node_priority_function_i(actual_node, i + 1) % 2 == 1:
+                    i] or g.get_node_priority_function_i(actual_node, i + 1) % 2 == (not inverted):
                     partial[i] = True
                 else:
                     partial[i] = -1
@@ -360,7 +361,7 @@ def create_predecessors(g, node, priorities, v_star):
     return preds
 
 
-def permissive_monotone_attractor(g, v_star, target_set, current_priorities):
+def permissive_monotone_attractor(g, v_star, target_set, current_priorities, inverted=False):
     """
     Attractor for one layer, handling previously computed v_star
     :param g: a game graph.
@@ -417,7 +418,7 @@ def permissive_monotone_attractor(g, v_star, target_set, current_priorities):
         if DEBUG_PRINT: print("     Considering node " + str(s))
 
         # here we need to create the predecessors
-        preds = create_predecessors(g, s, current_priorities, star_attractor)
+        preds = create_predecessors(g, s, current_priorities, star_attractor, inverted)
 
         # iterating over the predecessors of node s
         for sbis in preds:
@@ -428,7 +429,7 @@ def permissive_monotone_attractor(g, v_star, target_set, current_priorities):
             # get sbis info sbis = node, memory
             sbis_player = g.get_node_player(sbis_node)
             priority_ok = all(
-                g.nodes[sbis_node][z + 1] % 2 == 0 or g.nodes[sbis_node][z + 1] <= current_priorities[z] for z in
+                g.nodes[sbis_node][z + 1] % 2 == inverted or g.nodes[sbis_node][z + 1] <= current_priorities[z] for z in
                 range(nbr_func))
 
             # TODO verifying that the priorities are correct is done when predecessors are created

@@ -62,9 +62,9 @@ def R_set_func(g, func, target_set, j):
     return W
 
 
-def jfs_algo_func(g, func, j):
+def jfs_algo_func(g, func, j, inverted=False):
     assert (j == 0 or j == 1)
-    j_priorities = filter(lambda x: (x % 2) == j,
+    j_priorities = filter(lambda x: (x % 2) == (not inverted),
                           g.get_sorted_priorities_func(func))
     T = set([(v, p) for v in g.get_nodes()
              for p in filter(lambda x: x >= g.get_node_priority_function_i(v, func),
@@ -98,7 +98,10 @@ def psolC_func(g, func, W1, W2):
     return subgame, W1, W2
 
 
-def psolC_generalized(g, W0, W1):
+def psolC_generalized(g, W0, W1, inverted=False):
+    """
+    inverted true means we record odd priorities instead of even ones
+    """
     # base case : game is empty
     if g.get_nodes() == []:
         if DEBUG_PRINT: print("Base case return")
@@ -117,7 +120,7 @@ def psolC_generalized(g, W0, W1):
     # sort priorities and create the lists containing only the even priorities
     for func in range(nbr_func):
         priorities[func] = sorted(set(priorities[func]), reverse=False)  # change into set to remove duplicates and sort
-        even_priorities[func] = filter(lambda x: x % 2 == 0, priorities[func])  # keep the sorted even priorities
+        even_priorities[func] = filter(lambda x: x % 2 == inverted, priorities[func])  # keep the sorted even priorities
 
         # if there are no even priorities according to one of the functions, the game is completely won by player 1
         # return empty game and all nodes added to W1
@@ -127,30 +130,30 @@ def psolC_generalized(g, W0, W1):
 
     if DEBUG_PRINT:
         print("Priorities " + str(priorities))
-        print("Even priorities " + str(even_priorities))
+        print(("Even priorities "+str(even_priorities)) if not inverted else ("Odd priorities "+str(even_priorities)))
 
 
     # handle odd priorities by calling psolC with the correct function
     for i in range(1, nbr_func + 1):
-        safe_episodes = jfs_algo_func(g, i, 1)
+        safe_episodes = jfs_algo_func(g, i, 1, inverted)
         if len(safe_episodes) > 0:
             A, complement = attractor(g, safe_episodes, 1)
             W1.extend(A)
             subgame = g.subgame(complement)
-            return psolC_generalized(subgame, W0, W1)
+            return psolC_generalized(subgame, W0, W1, inverted)
 
     # handle even priorities
-    w = truc(g, nbr_func, even_priorities, priorities)
+    w = truc(g, nbr_func, even_priorities, priorities, inverted)
     if len(w) > 0:
         A, complement = attractor(g, w, 0)
         W0.extend(A)
         subgame = g.subgame(complement)
-        return psolC_generalized(subgame, W0, W1)
+        return psolC_generalized(subgame, W0, W1, inverted)
 
     return g, W0, W1
 
 
-def truc(g, nbr_func, even_priorities, priorities):
+def truc(g, nbr_func, even_priorities, priorities, inverted=False):
     """
     Compute the fixpoint with candidate set F and target set T
     :param g:
@@ -174,7 +177,7 @@ def truc(g, nbr_func, even_priorities, priorities):
     while cache != t and t != empty_set:
 
         cache = t
-        att = compute_fixpoint(g, t, nbr_func, even_priorities, max_values)
+        att = compute_fixpoint(g, t, nbr_func, even_priorities, max_values, inverted)
 
         res = set()
         for elem in init_nodes(g, t, nbr_func):
@@ -270,7 +273,7 @@ def comparator_generalized(x, y):
     return True
 
 
-def down_generalized(element, priorities, node, nbr_functions, max_values):
+def down_generalized(element, priorities, node, nbr_functions, max_values, inverted=False):
     """
     Computes the largest m = [m_1, ..., m_k] such that up(m, priorities) <= m' = element[1:]. Then we add node to
     obtain [node, m]. When computing down, priorities is a tuple of size k which gives the encountered priority
@@ -289,8 +292,8 @@ def down_generalized(element, priorities, node, nbr_functions, max_values):
 
         encountered_priority_p = priorities[func - 1]
 
-        # if priority encountered is even
-        if encountered_priority_p % 2 == 0:
+        # if priority encountered is even/odd
+        if encountered_priority_p % 2 == inverted:
 
             m_prim = element[func]
 
@@ -335,7 +338,7 @@ def create_start_antichain(starting_nodes, nbr_func, even_values):
     return start_antichain
 
 
-def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values):
+def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values, inverted=False):
     """
     This is the attractor starting node is f_j
     Computes the fixpoint obtained by the symbolic version of the backward algorithm for safety games.
@@ -367,12 +370,12 @@ def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values):
     if (toPrint):
         print("Dtart antichain  : " + str(start_antichain) + "\n")
 
-    cpre1 = Cpre(start_antichain, 1, graph, nbr_func, max_values)
+    cpre1 = Cpre(start_antichain, 1, graph, nbr_func, max_values, inverted)
 
     if (toPrint):
         print("CPre_1 of start antichain - new start : " + str(cpre1) + "\n")
 
-    cpre0 = Cpre(start_antichain, 0, graph, nbr_func, max_values)
+    cpre0 = Cpre(start_antichain, 0, graph, nbr_func, max_values, inverted)
 
     if (toPrint):
         print("CPre_0 of start antichain - new start : " + str(cpre0) + "\n")
@@ -390,12 +393,12 @@ def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values):
     antichain1_union_start.union(cpre0)
     antichain1_union_start.union(start_antichain)
 
-    cpre1 = Cpre(antichain1_union_start, 1, graph, nbr_func, max_values)
+    cpre1 = Cpre(antichain1_union_start, 1, graph, nbr_func, max_values, inverted)
 
     if (toPrint):
         print("CPre_1 of start antichain: " + str(cpre1) + "\n")
 
-    cpre0 = Cpre(antichain1_union_start, 0, graph, nbr_func, max_values)
+    cpre0 = Cpre(antichain1_union_start, 0, graph, nbr_func, max_values, inverted)
 
     if (toPrint):
         print("CPre_0 of start antichain: " + str(cpre0) + "\n")
@@ -429,11 +432,11 @@ def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values):
         antichain1_union_start.union(antichain1)
         antichain1_union_start.union(start_antichain)
 
-        cpre1 = Cpre(antichain1_union_start, 1, graph, nbr_func, max_values)
+        cpre1 = Cpre(antichain1_union_start, 1, graph, nbr_func, max_values, inverted)
         if (toPrint):
             print("ITER " + str(nb_iter) + " CPre 1 of prev " + str(cpre1) + "\n")
 
-        cpre0 = Cpre(antichain1_union_start, 0, graph, nbr_func, max_values)
+        cpre0 = Cpre(antichain1_union_start, 0, graph, nbr_func, max_values, inverted)
 
         if (toPrint):
             print("ITER " + str(nb_iter) + " CPre 0 of prev " + str(cpre0) + "\n")
@@ -454,7 +457,7 @@ def compute_fixpoint(graph, starting_nodes, nbr_func, even_values, max_values):
     return antichain1
 
 
-def Cpre(antichain, player, graph, nbr_functions, max_value):
+def Cpre(antichain, player, graph, nbr_functions, max_value, inverted=False):
     """
     Calls the correct controllable predecessor function depending on the player.
     :param antichain:
@@ -471,12 +474,12 @@ def Cpre(antichain, player, graph, nbr_functions, max_value):
     :rtype:
     """
     if player == 0:
-        return Cpre_0(antichain, graph, nbr_functions, max_value)
+        return Cpre_0(antichain, graph, nbr_functions, max_value, inverted)
     else:
-        return Cpre_1(antichain, graph, nbr_functions, max_value)
+        return Cpre_1(antichain, graph, nbr_functions, max_value, inverted)
 
 
-def Cpre_1(antichain, graph, nbr_functions, max_value):
+def Cpre_1(antichain, graph, nbr_functions, max_value, inverted=False):
     """
     Computes the antichain of the controllable predecessors for player 1 of 'antichain'.
     :param antichain:
@@ -504,7 +507,7 @@ def Cpre_1(antichain, graph, nbr_functions, max_value):
                 for element in antichain.incomparable_elements:
                     if element[0] == succ:
 
-                        computed_down = down_generalized(element, graph.nodes[node][1:], node, nbr_functions, max_value)
+                        computed_down = down_generalized(element, graph.nodes[node][1:], node, nbr_functions, max_value, inverted)
                         # print("Down = "+str(computed_down)+" Compute down of "+str(element)+" with prio "+str(graph.get_node_priority(node))+" node "+str(node)+" val max "+str(max_counter))
 
                         if computed_down != -1:
@@ -523,7 +526,7 @@ def Cpre_1(antichain, graph, nbr_functions, max_value):
     return cur_antichain
 
 
-def Cpre_0(antichain, graph, nbr_functions, max_value):
+def Cpre_0(antichain, graph, nbr_functions, max_value, inverted=False):
     """
     Computes the antichain of the controllable predecessors for player 0 of 'antichain'.
     :param antichain:
@@ -546,7 +549,7 @@ def Cpre_0(antichain, graph, nbr_functions, max_value):
         for pred in graph.get_predecessors(element[0]):
             if graph.get_node_player(pred) == 0:
                 computed_down = down_generalized(element, graph.nodes[pred][1:], pred, nbr_functions,
-                                                 max_value)
+                                                 max_value, inverted)
                 if computed_down != -1:
                     cur_antichain.insert(computed_down)
 
