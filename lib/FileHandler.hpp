@@ -16,12 +16,6 @@
 #include "MultiGame.hpp"
 #include "hoa_consumer_build_parity_game.hh"
 
-#define NOF_VERTEX   "NOF_VERTEX"
-#define VERTEX_ID   "VERTEX_ID"
-#define TRANSITIONS   "TRANSITIONS"
-#define NOF_GAMES "NOF_GAMES"
-#define COLORS  "COLORS"
-
 
 ///////////////////////////////////////////////////////////////
 /// File/Folder operations
@@ -59,291 +53,6 @@ void create(const std::string& filename) {
     }
 }
 
-
-
-///////////////////////////////////////////////////////////////
-/// Reading something from file
-///////////////////////////////////////////////////////////////
-
-/*! Read a member from a file. (A member is an attribute whose value is a scalar.)
- * \param[in] filename  Name of the file
- * \param[in] member_value  Reference to the variable that will contain the read member value
- * \param[in] member_name     The name of the member whose value is to be read
- * \param[out] out_flag          A flag that is 0 when reading was unsuccessful, and is 1 when reading was successful*/
-template<class T>
-int readMember(const std::string& filename, T& member_value, const std::string& member_name) {
-    std::ifstream file;
-    file.open(filename);
-    std::string line;
-    if (file.is_open()) {
-        while(std::getline(file,line)) {
-            /* check if a match is found with the member_name */
-            if(line.find(member_name)!=std::string::npos) {
-                /* the data is in the next line*/
-                if(std::getline(file,line)) {
-                  std::istringstream stream(line);
-                  stream >> member_value;
-                } else {
-                    try {
-                        throw std::runtime_error("FileHandler:readMember: Unable to read data member");
-                    } catch (std::exception &e) {
-                        std::cout << e.what() << "\n";
-                        return 0;
-                    }
-                }
-                file.close();
-                return 1;
-            }
-        }
-        /* while loop exited and data member was not found */
-        try {
-            throw std::runtime_error("FileHandler:readMember: Member not found.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:readMember: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
-}
-
-
-/*! Read 1-dimensional vector from file
- * \param[in] filename  Name of the file
- * \param[in] v                  Reference to the vector that will contain the read vector value
- * \param[in] no_elem     The size of the vector
- * \param[in] vec_name     The name of the vector whose value is to be read
- * \param[out] out_flag          A flag that is 0 when reading was unsuccessful, and is 1 when reading was successful*/
-template<class T>
-int readVec(const std::string& filename, std::vector<T>& vec, size_t no_elem, const std::string& vec_name) {
-    std::ifstream file;
-    file.open(filename);
-    if (file.is_open()) {
-        std::string line;
-        /* go through all the lines until a match with arr_name is found */
-        while(std::getline(file,line)) {
-            if(line.find(vec_name)!=std::string::npos) {
-                for (size_t i=0; i<no_elem; i++) {
-                    if(std::getline(file,line)) {
-                        std::stringstream line_stream(line);
-                        /* first character should be the index of the vector element */
-                        size_t index;
-                        line_stream >> index;
-                        // if (index >= no_elem) {
-                        //     try {
-                        //         throw std::runtime_error("FileHandler:readVecSet: Index out of bound.");
-                        //     } catch (std::exception &e) {
-                        //         std::cout << e.what() << "\n";
-                        //         return 0;
-                        //     }
-                        // }
-                        // /* add empty elements for all the missing indices */
-                        // for (size_t j = i; j < index; j++, i++) {
-                        //     T t;
-                        //     vec.push_back(t);
-                        // }
-                        if (index != i) {
-                            try {
-                                throw std::runtime_error("FileHandler:readVec: Missing index.");
-                            } catch (std::exception &e) {
-                                std::cout << e.what() << "\n";
-                                return 0;
-                            }
-                        }
-                        /* ignore all the characters until a colon is seen */
-                        line_stream.ignore(std::numeric_limits<std::streamsize>::max(), ':');
-                        /* add the next element and ignore the rest of the line */
-                        T t;
-                        line_stream >> t;
-                        vec.push_back(t);
-                    } else {
-                        try {
-                            throw std::runtime_error("FileHandler:readVec: Unable to read vector.");
-                        } catch (std::exception &e) {
-                            std::cout << e.what() << "\n";
-                            return 0;
-                        }
-                    }
-                }
-                file.close();
-                return 1;
-            }
-        }
-        /* while loop exited and the vec was not found */
-        try {
-            throw std::runtime_error("FileHandler:readVecSet: Vector not found.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:readVecSet: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
-}
-
-/*! Read 1-dimensional integer set (unordered) from file
- * NOTE: NO LINE BREAK IS ALLOWED!
- * \param[in] filename  Name of the file
- * \param[in] s                  Reference to the set that will contain the read set value
- * \param[in] no_elem     The size of the set
- * \param[in] set_name     The name of the set whose value is to be read
- * \param[out] out_flag          A flag that is 0 when reading was unsuccessful, and is 1 when reading was successful*/
-template<class T>
-int readSet(const std::string& filename, std::unordered_set<T>& s, size_t no_elem, const std::string& set_name) {
-    std::ifstream file;
-    file.open(filename);
-    if (file.is_open()) {
-        std::string line;
-        while(std::getline(file,line)) {
-            if(line.find(set_name)!=std::string::npos) {
-                for (size_t i=0; i<no_elem; i++) {
-                    if(std::getline(file,line)) {
-                        std::stringstream stream(line);
-                        std::locale loc;
-                        if (!std::isdigit(line[0],loc)) {
-                            try {
-                                throw std::runtime_error("FileHandler:readSet: Number of rows do not match with number of elements.");
-                            } catch (std::exception &e) {
-                                std::cout << e.what() << "\n";
-                                return 0;
-                            }
-                        } else {
-                            T val;
-                            stream >> val;
-                            s.insert(val);
-                        }
-                    } else {
-                        try {
-                            throw std::runtime_error("FileHandler:readSet: Unable to read set.");
-                        } catch (std::exception &e) {
-                            std::cout << e.what() << "\n";
-                            return 0;
-                        }
-                    }
-                }
-                file.close();
-                return 1;
-            }
-        }
-        /* while loop exited and the set was not found */
-        try {
-            throw std::runtime_error("FileHandler:readSet: Set not found.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:readSet: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
-}
-
-/*! Read vector of pointers to unordered sets (can be thought of as a 2-d table) from file
- *  NOTE: NO LINE BREAK IS ALLOWED!
- * \param[in] filename  Name of the file
- * \param[in] vec             Reference to the vector that will contain the read vector value
- * \param[in] no_elem     The size of the vector
- * \param[in] vec_name     The name of the vector whose value is to be read
- * \param[out] out_flag          A flag that is 0 when reading was unsuccessful, and is 1 when reading was successful*/
-template<class T>
-int readVecSet(const std::string& filename, std::vector<std::unordered_set<T>>& vec, size_t no_elem, const std::string& vec_name) {
-    std::ifstream file;
-    file.open(filename);
-    if (file.is_open()) {
-        std::string line;
-        /* go through all the lines until a match with arr_name is found */
-        while(std::getline(file,line)) {
-            if(line.find(vec_name)!=std::string::npos) {
-                for (size_t i=0; i<no_elem; i++) {
-                    if(std::getline(file,line)) {
-                        if (line == "") { /* the line is empty */
-                            /* no more members, fill the remaining positions with empty sets */
-                            for (size_t j = i; j < no_elem; j++, i++) {
-                                std::unordered_set<T> set;
-                                vec.push_back(set);
-                            }
-                        } else {
-                            std::stringstream line_stream(line);
-                            /* first character should be the index of the vector element */
-                            size_t index;
-                            line_stream >> index;
-                            if (index >= no_elem) {
-                                try {
-                                    throw std::runtime_error("FileHandler:readVecSet: Index out of bound.");
-                                } catch (std::exception &e) {
-                                    std::cout << e.what() << "\n";
-                                    return 0;
-                                }
-                            }
-                            if (index < i) {
-                                try {
-                                    throw std::runtime_error("FileHandler:readVecSet: Repeated index.");
-                                } catch (std::exception &e) {
-                                    std::cout << e.what() << "\n";
-                                    return 0;
-                                }
-                            }
-                            /* add empty sets for all the missing indices */
-                            for (size_t j = i; j < index; j++, i++) {
-                                std::unordered_set<T> set;
-                                vec.push_back(set);
-                            }
-                            /* ignore all the characters until a colon is seen */
-                            line_stream.ignore(std::numeric_limits<std::streamsize>::max(), ':');
-                            /* create a set for the current index */
-                            std::unordered_set<T> set;
-                            while (line_stream.good()) {
-                                T x;
-                                line_stream >> x;
-                                if (!line_stream.fail()) {
-                                    set.insert(x);
-                                }
-                            }
-                            vec.push_back(set);
-                        }
-                    } else {
-                        try {
-                            throw std::runtime_error("FileHandler:readVecSet: Unable to read vector.");
-                        } catch (std::exception &e) {
-                            std::cout << e.what() << "\n";
-                            return 0;
-                        }
-                    }
-                }
-                file.close();
-                return 1;
-            }
-        }
-        /* while loop exited and the vec was not found */
-        try {
-            throw std::runtime_error("FileHandler:readVecSet: Vector not found.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    } else {
-        try {
-            throw std::runtime_error("FileHandler:readVecSet: Unable to open input file.");
-        } catch (std::exception &e) {
-            std::cout << e.what() << "\n";
-            return 0;
-        }
-    }
-}
 
 ///////////////////////////////////////////////////////////////
 /// Read/Write different game formats
@@ -404,19 +113,15 @@ mpa::Game hoa2game(std::istream& issr){
 mpa::Game hoa2game(const std::string filename){
     std::ifstream file(filename);
     return hoa2game(file);
+    
 }
 
-/*! read a game in pgsolver format from a file and convert it to normal game
- * \param[in] file  filestream or Name of the file
- * \param[out] N     Number of vertices
- * \param[out] V_ID  Vector containing owner of the vertices
- * \param[out] TR_final    Transition vector
- * \param[out] COL   Vector of colors */
-int pg2game(std::istream& file,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR_final,
-                std::vector<size_t>& COL){
+/*! read a game in pgsolver format from a file and convert it to normal game */
+mpa::Game pg2game(std::istream& file){
+    size_t N;
+    std::vector<size_t> V_ID;
+    std::vector<std::unordered_set<size_t>> TR_final;
+    std::vector<size_t> COL;
     std::vector<size_t> V_name;
     std::vector<std::unordered_set<size_t>> TR;
     std::vector<size_t> ICOL;
@@ -476,33 +181,75 @@ int pg2game(std::istream& file,
         // if (max_col==1){
             // COL = ICOL; /* buchi ehoa to buchi pgsolver */
         // }
-        return 1;
+        mpa::Game G(N, V_ID, TR_final, COL);
+        return G;
 }
-int pg2game(const std::string& filename,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR_final,
-                std::vector<size_t>& COL){
-
+mpa::Game pg2game(const std::string& filename){
     std::ifstream file(filename);
-    return pg2game(file,N,V_ID,TR_final,COL);
+    return pg2game(file);
 }
+
+/* read a game from std::cin */
+mpa::Game std2game(){
+    size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
+    /* construct the game from stdin */
+    std::string str, line;
+    while (std::getline(std::cin, line)){
+        str += "\n" + line;
+        if (pg == 2){
+            std::stringstream line_stream(line);
+            std::string name;
+            line_stream >> name;
+            /* check for the header line starting with "parity" then it is pgsolver format */
+            if (name == "parity"){
+                pg = 1;
+            }
+            /* check for the header line starting with "HOA:" then it is hoa format */
+            else if (name == "HOA:"){
+                pg = 0;
+            }
+        }
+        if (pg == 0){
+            if (line.find("END") != std::string::npos){
+                break;
+            }
+        }
+    }
+    std::istringstream issr(str);
+    if (pg == 1){
+        return pg2game(issr);
+    }
+    return hoa2game(issr);
+}
+
+/*! read a game in pgsolver/ehoa format from a file and convert it to normal game
+ * \param[in] filename  Name of the file */
+mpa::Game file2game(const std::string& filename){
+    if(ends_with(filename, ".gm") || ends_with(filename, ".pg")){/* if the file is a .pg (pgsolver) file  */
+        return pg2game(filename);
+    }
+    else if (ends_with(filename, ".hoa") || ends_with(filename, ".ehoa")){ /* if it is a HOA file */
+        return hoa2game(filename);
+    }
+    else{
+        std::cerr << "Error: extension of the file is not clear!\n";
+        return hoa2game(filename);
+    }
+}
+
+
 
 
 
 /*! read a generalized parity game in gpgsolver format from a file and convert it to normal game
  * \param[in] file  filestream or Name of the file
- * \param[out] N     Number of vertices
- * \param[out] V_ID  Vector containing owner of the vertices
- * \param[out] TR_final    Transition vector
- * \param[out] N_GAME   Number of games
- * \param[out] ALL_COL   Vectors of all colors */
-int gpg2game(std::istream& file,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR_final,
-                size_t& N_GAME,
-                std::vector<std::vector<size_t>>& ALL_COL){
+*/
+mpa::MultiGame gpg2multgame(std::istream& file){
+    size_t N;
+    std::vector<size_t> V_ID;
+    std::vector<std::unordered_set<size_t>> TR_final;
+    size_t N_GAME;
+    std::vector<std::vector<size_t>> ALL_COL;
     std::vector<size_t> V_name;
     std::vector<std::unordered_set<size_t>> TR;
         std::string line;
@@ -576,92 +323,18 @@ int gpg2game(std::istream& file,
             }
             TR_final.push_back(trans_list);
         }
-        return 1;
+        mpa::MultiGame G(N, V_ID, TR_final, N_GAME, ALL_COL);
+        return G;
 }
-int gpg2game(const std::string& filename,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR_final,
-                size_t& N_GAME,
-                std::vector<std::vector<size_t>>& ALL_COL){
+mpa::MultiGame gpg2multgame(const std::string& filename){
         std::ifstream file(filename);
-        return gpg2game(file,N,V_ID,TR_final,N_GAME,ALL_COL);
+        return gpg2multgame(file);
+}
+mpa::MultiGame std2multgame(){
+    return gpg2multgame(std::cin);
+}
+mpa::MultiGame file2multgame(const std::string& filename){
+    return gpg2multgame(filename);
 }
 
 
-
-/*! read a generalized parity game in standard format from a file and convert it to normal game
- * \param[in] filename  Name of the file
- * \param[out] N     Number of vertices
- * \param[out] V_ID  Vector containing owner of the vertices
- * \param[out] TR    Transition vector
- * \param[out] COL   Vectors of all colors */
-int std2game(const std::string& filename,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR,
-                std::vector<size_t> & COL){
-    if (!readMember(filename, N, NOF_VERTEX)) {
-        throw std::runtime_error("Missing/badly entered number of vertices.\n");
-    }
-    if (!readVec(filename, V_ID, N, VERTEX_ID)) {
-        throw std::runtime_error("Missing/badly entered player id-s of vertices.\n");
-    }
-    if (!readVecSet(filename, TR, N, TRANSITIONS)) {
-        throw std::runtime_error("Missing/badly entered transition matrix.\n");
-    }
-    
-    if (!readVec(filename, COL, N, COLORS)) {
-        throw std::runtime_error("Missing/badly entered colors of the vertices.\n");
-    }
-    return 1;
-}
-
-/*! read a generalized parity game in standard format from a file and convert it to normal game
- * \param[in] filename  Name of the file
- * \param[out] N     Number of vertices
- * \param[out] V_ID  Vector containing owner of the vertices
- * \param[out] TR    Transition vector
- * \param[out] N_GAME   Number of games
- * \param[out] ALL_COL   Vectors of all colors */
-int std2multigame(const std::string& filename,
-                size_t& N,
-                std::vector<size_t>& V_ID,
-                std::vector<std::unordered_set<size_t>>& TR,
-                size_t& N_GAME,
-                std::vector<std::vector<size_t>>& ALL_COL){
-    if (!readMember(filename, N, NOF_VERTEX)) {
-        throw std::runtime_error("Missing/badly entered number of vertices.\n");
-    }
-    if (!readVec(filename, V_ID, N, VERTEX_ID)) {
-        throw std::runtime_error("Missing/badly entered player id-s of vertices.\n");
-    }
-    if (!readVecSet(filename, TR, N, TRANSITIONS)) {
-        throw std::runtime_error("Missing/badly entered transition matrix.\n");
-    }
-    std::vector<size_t> COL;
-    if (!readVec(filename, COL, N, COLORS)){
-        throw std::runtime_error("Missing/badly entered colors of the vertices.\n");
-    }
-    ALL_COL.push_back(COL);
-    if (!readMember(filename, N_GAME, NOF_GAMES)) {
-        std::cout<<"Number of games is assumed to be 2 as it is not provided.\n";
-        std::vector<size_t> COL;
-        if (!readVec(filename, COL, N, COLORS + std::to_string(2))){
-            std::cout<<"Number of games is assumed to be 1 one set of colors provided.\n";
-            N_GAME = 1;
-        }
-        else{
-            ALL_COL.push_back(COL);
-            N_GAME = 2;
-        }
-    }
-    for (size_t i = 2; i <= N_GAME; i++){
-        std::vector<size_t> COL;
-        if (!readVec(filename, COL, N, COLORS + std::to_string(i))){
-            throw std::runtime_error("Missing/badly entered colors of the vertices.\n");
-        }
-        ALL_COL.push_back(COL);
-    }
-    return 1;
-}

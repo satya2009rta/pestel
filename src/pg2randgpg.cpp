@@ -22,19 +22,11 @@ int main(int argc, char* argv[]) {
         if (argc <= 3) {
             throw std::runtime_error("Too few input arguments.\n");
         }
+        mpa::MultiGame G;
+
         /* read filename */
         std::string filename(argv[1]);
-        size_t N;
-        std::vector<size_t> V_ID;
-        std::vector<std::unordered_set<size_t>> TR;
-        std::vector<size_t> COL;
-        mpa::MultiGame G;
-        
-        /* covert pgsolver format to normal game */
-        pg2game(filename, N, V_ID, TR, COL);
-
-        /* construct the game */
-        G.mergeGame(mpa::Game(N, V_ID, TR, COL));
+        G.mergeGame(file2game(filename));
         
         int no_games = std::stoi(argv[2]); /* number of new color sets to be added */
         int rand_max_col = std::stoi(argv[3]); /* maximum color that can be generated */

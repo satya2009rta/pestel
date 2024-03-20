@@ -17,26 +17,16 @@
 
 int main(int argc, char* argv[]) {
     try {
-        /* variables for game */
-        size_t N;
-        std::vector<size_t> V_ID;
-        std::vector<std::unordered_set<size_t>> TR;
-        std::vector<size_t> COL;
         mpa::MultiGame G;
 
         if (argc <= 1) {
-            pg2game(std::cin, N, V_ID, TR, COL);
+            G.mergeGame(std2game());
         }
         else{
             /* read filename */
             std::string filename(argv[1]);
-            
-            /* covert pgsolver format to normal game */
-            pg2game(filename, N, V_ID, TR, COL);
+            G.mergeGame(file2game(filename));
         }
-        
-        /* construct the game */
-        G.mergeGame(mpa::Game(N, V_ID, TR, COL));
 
         /* convert it to generalized parity game (multi-game) */
         G.parityToMultigame();

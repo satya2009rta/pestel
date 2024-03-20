@@ -5,7 +5,7 @@
  *  The input is to be given as a text file */
 
 #include "FileHandler.hpp"
-#include "paritySolvers.hpp"
+#include "MultiGame.hpp"
 
 /* command line inputs:
  *
@@ -15,32 +15,16 @@
 
 int main(int argc, char* argv[]) {
     try {
-        /* variables for game */
-        size_t N;
-        std::vector<size_t> V_ID;
-        std::vector<std::unordered_set<size_t>> TR;
-        std::vector<size_t> COL;
+        mpa::Game G;
         if (argc <= 1) {
-            pg2game(std::cin, N, V_ID, TR, COL);
+            G = std2game();
         }
         else{
             /* read filename */
             std::string filename(argv[1]);
-            /* print the filename */
-            // std::cout << "\n********"<< filename << "********\n";
-            /* check if the file is a .gm (pgsolver) file  */
-            if(ends_with(filename, ".gm")){
-                /* covert pgsolver format to normal game */
-                pg2game(filename, N, V_ID, TR, COL);
-            }
-            else { /* read the number of vertices and vertex id, etc. directly from file */
-                std2game(filename, N, V_ID, TR, COL);
-            }
+            G = file2game(filename);
         }
-        /* construct the game */
-        mpa::Game G(N, V_ID, TR, COL);
-        // print_game(G);
-
+    
         /* compute the strategy template */
         std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
         std::map<size_t, std::unordered_set<size_t>> colive_edge_set;
