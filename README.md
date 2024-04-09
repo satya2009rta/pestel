@@ -52,7 +52,7 @@ Example usage:
 
 ### - pg2randgpg
 ```
-Usage: pg2randgpggpg [num_obj] [max_col]
+Usage: pg2randgpg [num_obj] [max_col]
 ```
 
 Inputs/Outputs:
