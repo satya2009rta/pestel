@@ -1,19 +1,13 @@
 /*
  * pg2gpg.cpp
  *
- *  A program to convert a pgsolver file into gpg format (generalized parity game)
- *  The input is to be given as a text file */
+ *  A program to convert a pgsolver file into pgsolver format generalized parity game.
+ *  It requires stdin input which is the description of a parity game in extended HOA or pgsolver format; and outputs the result game in pgsolver format to stdout. */
 
 #include <functional>
 
 #include "MultiGame.hpp"
 #include "FileHandler.hpp"
-
-/* command line inputs:
- *
- *  [1]: input file name
- * 
- */
 
 int main(int argc, char* argv[]) {
     try {
@@ -32,14 +26,7 @@ int main(int argc, char* argv[]) {
         G.parityToMultigame();
         
         /* output to gpg formtat */
-        if (argc > 2) {
-            std::string output_file(argv[2]);
-            std::ofstream file(output_file);
-            multigame2gpg(G,file);
-        }
-        else{
-            multigame2gpg(G);
-        }
+        multigame2gpg(G);
     }
     /* TODO: print the same output in the output file */
     catch (const std::exception &ex) {

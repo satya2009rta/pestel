@@ -190,11 +190,11 @@ mpa::Game pg2game(const std::string& filename){
 }
 
 /* read a game from std::cin */
-mpa::Game std2game(){
+mpa::Game std2game(std::istream& file = std::cin){
     size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
     /* construct the game from stdin */
     std::string str, line;
-    while (std::getline(std::cin, line)){
+    while (std::getline(file, line)){
         str += "\n" + line;
         if (pg == 2){
             std::stringstream line_stream(line);
@@ -225,16 +225,8 @@ mpa::Game std2game(){
 /*! read a game in pgsolver/ehoa format from a file and convert it to normal game
  * \param[in] filename  Name of the file */
 mpa::Game file2game(const std::string& filename){
-    if(ends_with(filename, ".gm") || ends_with(filename, ".pg")){/* if the file is a .pg (pgsolver) file  */
-        return pg2game(filename);
-    }
-    else if (ends_with(filename, ".hoa") || ends_with(filename, ".ehoa")){ /* if it is a HOA file */
-        return hoa2game(filename);
-    }
-    else{
-        std::cerr << "Error: extension of the file is not clear!\n";
-        return hoa2game(filename);
-    }
+    std::ifstream file(filename);
+    return std2game(file);
 }
 
 
@@ -330,11 +322,42 @@ mpa::MultiGame gpg2multgame(const std::string& filename){
         std::ifstream file(filename);
         return gpg2multgame(file);
 }
-mpa::MultiGame std2multgame(){
-    return gpg2multgame(std::cin);
+mpa::MultiGame std2multgame(std::istream& file = std::cin){
+    size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
+    /* construct the game from stdin */
+    std::string str, line;
+    while (std::getline(file, line)){
+        str += "\n" + line;
+        if (pg == 2){
+            std::stringstream line_stream(line);
+            std::string name;
+            line_stream >> name;
+            /* check for the header line starting with "parity" then it is pgsolver format */
+            if (name == "parity"){
+                pg = 1;
+            }
+            /* check for the header line starting with "HOA:" then it is hoa format */
+            else if (name == "HOA:"){
+                pg = 0;
+            }
+        }
+        if (pg == 0){
+            if (line.find("END") != std::string::npos){
+                break;
+            }
+        }
+    }
+    std::istringstream issr(str);
+    if (pg == 1){
+        return gpg2multgame(issr);
+    }
+    mpa::MultiGame G;
+    G.mergeGame(hoa2game(issr));
+    return G;
 }
 mpa::MultiGame file2multgame(const std::string& filename){
-    return gpg2multgame(filename);
+    std::ifstream file(filename);
+    return std2multgame(file);
 }
 
 

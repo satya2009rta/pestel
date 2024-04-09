@@ -2,19 +2,13 @@
  * pg2randgpg.cpp
  *
  *  A program to add random colors to a (pgsolver) game to 
- *  get a gpg format generalized parity game
- *  The input is to be given as a text file */
+ *  get a pgsolver format generalized parity game
+ *  It requires stdin input which is the description of a parity game in extended HOA or pgsolver format; and outputs the result game in pgsolver format to stdout. */
 
 #include <functional>
 
 #include "MultiGame.hpp"
 #include "FileHandler.hpp"
-
-/* command line inputs:
- *
- *  [1]: input file name
- * 
- */
 
 int main(int argc, char* argv[]) {
     try {

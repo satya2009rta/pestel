@@ -3,7 +3,7 @@
 ####################
 CC        = g++
 C	  		= gcc
-CXXFLAGS 	= -Wall -Wextra -std=c++2a -O3 -DNDEBUG -Wno-unknown-pragmas
+CXXFLAGS 	= -Wall -Wextra -std=c++2a -O3 -DNDEBUG -Wno-unknown-pragmas -Wno-deprecated-copy-with-user-provided-copy
 CFLAGS 	= -O3 -DNDEBUG
 
 
@@ -35,9 +35,9 @@ BUILD		= $(PRJROOT)/build
 #
 #OBJ		= ../../src/FileHandler
 
-.PHONY: folder compute compose pg2gpg pg2randgpg clean
+.PHONY: folder pestel pg2gpg pg2randgpg clean
 
-TARGET = folder compute compose pg2gpg pg2randgpg 
+TARGET = folder pestel pg2gpg pg2randgpg 
 
 all: $(TARGET)
 build: $(TARGET)
@@ -45,10 +45,8 @@ build: $(TARGET)
 folder:
 	[ -d $(BUILD) ] || mkdir -p $(BUILD)
 
-compute:
-	$(CC) $(CXXFLAGS) $(LIBINC) $(SRC)/compute.cpp -o $(BUILD)/compute
-compose:
-	$(MPCC) $(CXXFLAGS) $(LIBINC) $(MPFLAGS) $(SRC)/compose.cpp -o $(BUILD)/compose
+pestel:
+	$(CC) $(CXXFLAGS) $(LIBINC) $(SRC)/pestel.cpp -o $(BUILD)/pestel
 
 pg2gpg:
 	$(CC) $(CXXFLAGS) $(LIBINC) $(SRC)/pg2gpg.cpp -o $(BUILD)/pg2gpg
