@@ -60,7 +60,11 @@ void create(const std::string& filename) {
 
 /*! output a multigame to gpg format 
  * \param[in] Multigame  */
-int multigame2gpg(const mpa::MultiGame G, std::ostream& ostr = std::cout){
+int multigame2gpg(mpa::MultiGame& G, std::ostream& ostr = std::cout){
+    if (G.all_colors_.empty()){
+        G.n_games_ = 1;
+        G.all_colors_.push_back(G.colors_);
+    }
     /* print first line */
     ostr<< "parity "<< G.n_vert_-1 <<";\n"; 
     for (size_t v = 0; v < G.n_vert_; v++){ /* print the following for each vertex */
@@ -88,6 +92,14 @@ int multigame2gpg(const mpa::MultiGame G, std::ostream& ostr = std::cout){
         ostr<<"\n";
     }
     return 0;
+}
+
+/*! output a game to pg format 
+ * \param[in] Game  */
+int game2pg(const mpa::Game G, std::ostream& ostr = std::cout){
+    mpa::MultiGame MG;
+    MG.mergeGame(G);
+    return multigame2gpg(MG,ostr);
 }
 
 /*! read a game in extended hoa format from a file/input and convert it to normal game
@@ -190,10 +202,10 @@ mpa::Game pg2game(const std::string& filename){
 }
 
 /* read a game from std::cin */
-mpa::Game std2game(std::istream& file = std::cin){
+mpa::Game std2game(std::string& str, std::istream& file = std::cin){
     size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
     /* construct the game from stdin */
-    std::string str, line;
+    std::string line;
     while (std::getline(file, line)){
         str += "\n" + line;
         if (pg == 2){
@@ -224,9 +236,9 @@ mpa::Game std2game(std::istream& file = std::cin){
 
 /*! read a game in pgsolver/ehoa format from a file and convert it to normal game
  * \param[in] filename  Name of the file */
-mpa::Game file2game(const std::string& filename){
+mpa::Game file2game(const std::string& filename, std::string& str){
     std::ifstream file(filename);
-    return std2game(file);
+    return std2game(str,file);
 }
 
 
@@ -322,10 +334,10 @@ mpa::MultiGame gpg2multgame(const std::string& filename){
         std::ifstream file(filename);
         return gpg2multgame(file);
 }
-mpa::MultiGame std2multgame(std::istream& file = std::cin){
+mpa::MultiGame std2multgame(std::string& str, std::istream& file = std::cin){
     size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
     /* construct the game from stdin */
-    std::string str, line;
+    std::string line;
     while (std::getline(file, line)){
         str += "\n" + line;
         if (pg == 2){
@@ -355,9 +367,9 @@ mpa::MultiGame std2multgame(std::istream& file = std::cin){
     G.mergeGame(hoa2game(issr));
     return G;
 }
-mpa::MultiGame file2multgame(const std::string& filename){
+mpa::MultiGame file2multgame(const std::string& filename, std::string& str){
     std::ifstream file(filename);
-    return std2multgame(file);
+    return std2multgame(str, file);
 }
 
 

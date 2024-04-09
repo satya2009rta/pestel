@@ -9,18 +9,11 @@
 #include "MultiGame.hpp"
 #include "FileHandler.hpp"
 
-int main(int argc, char* argv[]) {
+int main() {
     try {
         mpa::MultiGame G;
-
-        if (argc <= 1) {
-            G.mergeGame(std2game());
-        }
-        else{
-            /* read filename */
-            std::string filename(argv[1]);
-            G.mergeGame(file2game(filename));
-        }
+        std::string game_str;
+        G.mergeGame(std2game(game_str));
 
         /* convert it to generalized parity game (multi-game) */
         G.parityToMultigame();

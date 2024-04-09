@@ -11,34 +11,58 @@ PeSTel is a tool for computing strategy templates for two player graph games wit
 Run the following commands to build all executable files
 
 ```
-make build
+make
 ```
 
 ## Usage
-The executable files are generated and stored in the folder `./build/`. Usage of each executable are described below.
+The executable files are generated and stored in the folder `./build/`. Usage of all the executables are described below.
 
-\- `pestel` computes a winning strategy template for a parity or generalized parity game. It requires stdin input which is one of the follows:
-- description of a parity game in extended HOA or pgsolver format,
-- description of a generalized parity game in pgsolver format.
+### pestel
+```
+Usage: pestel [OPTION...]
+```
 
-It outputs the winning strategy template to stdout.
+Inputs/Outputs:
+- STDIN: description of a parity game in extended-HOA/pgsolver format or description of a generalized parity game in pgsolver format
+- STDOUT: a winning strategy template 
+
+The possible OPTIONs are as follows:
+- --print-game: print the parity game (same format as input)
+- --print-game=pg: print the parity game in pgsolver format
+- --print-template-size: print size of the templates
 
 Example usage:
 ```
-./build/pestel < ./examples/ltl2dpa01.tlsf.gm
+./build/pestel --print-template-size < ./examples/ltl2dpa01.tlsf.gm
 ```
 
-\- `pg2gpg` converts a parity game to generalized parity game by using standard method to convert parity games to Streett games. It requires stdin input which is the description of a parity game in extended HOA or pgsolver format; and outputs the resulting game in pgsolver format to stdout.
+### pg2gpg
+```
+Usage: pg2gpg 
+```
+
+Inputs/Outputs:
+- STDIN: description of a parity game in extended-HOA/pgsolver format
+- STDOUT: a generalized parity game (in pgsolver format) that is equivalent to the given parity game obtained by using standard conversion from parity games to Streett games
 
 Example usage:
 ```
 ./build/pg2gpg < ./examples/test_gpg_02.gpg
 ```
 
-\- `pg2randgpg` converts a parity game to a generalized parity game by adding a number of random parity objective to a game graph. It requires three command-line arguments: (1) filename that contains description of a parity game in extended HOA or pgsolver format, (2) number of parity objectives, (3) maximum priority of the parity objectives; and outputs the resulting game in pgsolver format to stdout.
+### pg2randgpg
+```
+Usage: pg2randgpggpg [num_obj] [max_col]
+```
+
+Inputs/Outputs:
+- num_obj: number of parity objectives to be generated
+- max_col: maximum priority of the parity objectives
+- STDIN: description of a parity game in extended-HOA/pgsolver format
+- STDOUT: a generalized parity game (in pgsolver format) obtained by adding a number of random parity objectives to the given game graph
 
 Example usage:
 ```
-./build/pg2randgpg ./examples/test_pg_01.gm 4 2
+./build/pg2randgpg 4 2 < ./examples/test_pg_01.gm
 ```
 
