@@ -17,7 +17,7 @@ make
 ## Usage
 The executable files are generated and stored in the folder `./build/`. Usage of all the executables are described below.
 
-### pestel
+### - pestel
 ```
 Usage: pestel [OPTION...]
 ```
@@ -36,7 +36,7 @@ Example usage:
 ./build/pestel --print-template-size < ./examples/ltl2dpa01.tlsf.gm
 ```
 
-### pg2gpg
+### - pg2gpg
 ```
 Usage: pg2gpg 
 ```
@@ -50,7 +50,7 @@ Example usage:
 ./build/pg2gpg < ./examples/test_gpg_02.gpg
 ```
 
-### pg2randgpg
+### - pg2randgpg
 ```
 Usage: pg2randgpggpg [num_obj] [max_col]
 ```
