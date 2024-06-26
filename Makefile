@@ -33,6 +33,9 @@ pg2gpg:
 pg2randgpg:
 	$(CC) $(CXXFLAGS) $(LIBINC) $(SRC)/pg2randgpg.cpp -o $(BUILD)/pg2randgpg
 
+hoa2pg:
+	$(CC) $(CXXFLAGS) $(LIBINC) $(SRC)/hoa2pg.cpp -o $(BUILD)/hoa2pg
+
 
 clean:
 	rm -r -f  $(BUILD)/*

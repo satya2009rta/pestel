@@ -66,3 +66,17 @@ Example usage:
 ./build/pg2randgpg 4 2 < ./examples/test_pg_01.gm
 ```
 
+### - hoa2pg
+```
+Usage: hoa2pg 
+```
+
+Inputs/Outputs:
+- STDIN: description of a parity game in extended-HOA format
+- STDOUT: description of the same parity game in pgsolver format
+
+Example usage:
+```
+./build/hoa2pg < ./examples/test_hoa_01.hoa
+```
+
