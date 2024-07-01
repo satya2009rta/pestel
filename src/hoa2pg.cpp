@@ -16,11 +16,12 @@ int main() {
 
         /* output to gpg formtat */
         game2pg(G);
+        return 0;
     }
     /* TODO: print the same output in the output file */
     catch (const std::exception &ex) {
         std::cout << ex.what() << "\n";
-        return -1;
+        return 1;
     }
 }
 

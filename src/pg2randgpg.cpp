@@ -41,12 +41,14 @@ int main(int argc, char* argv[]) {
        /* randomly generate no_games set of colors <= max_color */
         G.randMultigame(no_games, rand_max_col);
         multigame2gpg(G);
+
+        return 0;
     }
     /* TODO: print the same output in the output file */
     catch (const std::exception &ex) {
         std::cout << ex.what() << "\n";
         printHelp();
-        return -1;
+        return 1;
     }
 }
 

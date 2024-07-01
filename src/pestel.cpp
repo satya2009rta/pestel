@@ -92,13 +92,13 @@ int main(int argc, char* argv[]) {
             std::cout <<"**==================================================\n";
         }
 
-        return 1;
+        return 0;
     }
     /* TODO: print the same output in the output file */
     catch (const std::exception &ex) {
         std::cout << ex.what() << "\n";
         printHelp();
-        return 0;
+        return 1;
     }
 }
 
