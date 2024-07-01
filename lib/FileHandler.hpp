@@ -207,7 +207,6 @@ mpa::Game std2game(std::string& str, std::istream& file = std::cin){
     /* construct the game from stdin */
     std::string line;
     while (std::getline(file, line)){
-        str += "\n" + line;
         if (pg == 2){
             std::stringstream line_stream(line);
             std::string name;
@@ -215,14 +214,20 @@ mpa::Game std2game(std::string& str, std::istream& file = std::cin){
             /* check for the header line starting with "parity" then it is pgsolver format */
             if (name == "parity"){
                 pg = 1;
+                str += "\n" + line;
             }
             /* check for the header line starting with "HOA:" then it is hoa format */
             else if (name == "HOA:"){
                 pg = 0;
+                str += "\n" + line;
             }
         }
-        if (pg == 0){
-            if (line.find("END") != std::string::npos){
+        else{
+            str += "\n" + line;
+            if (pg == 0 && line.find("END") != std::string::npos){
+                break;
+            }
+            else if (pg == 1 && line == ""){
                 break;
             }
         }
@@ -339,7 +344,6 @@ mpa::MultiGame std2multgame(std::string& str, std::istream& file = std::cin){
     /* construct the game from stdin */
     std::string line;
     while (std::getline(file, line)){
-        str += "\n" + line;
         if (pg == 2){
             std::stringstream line_stream(line);
             std::string name;
@@ -347,14 +351,20 @@ mpa::MultiGame std2multgame(std::string& str, std::istream& file = std::cin){
             /* check for the header line starting with "parity" then it is pgsolver format */
             if (name == "parity"){
                 pg = 1;
+                str += "\n" + line;
             }
             /* check for the header line starting with "HOA:" then it is hoa format */
             else if (name == "HOA:"){
                 pg = 0;
+                str += "\n" + line;
             }
         }
-        if (pg == 0){
-            if (line.find("END") != std::string::npos){
+        else{
+            str += "\n" + line;
+            if (pg == 0 && line.find("END") != std::string::npos){
+                break;
+            }
+            else if (pg == 1 && line == ""){
                 break;
             }
         }
