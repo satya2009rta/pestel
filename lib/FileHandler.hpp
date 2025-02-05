@@ -304,10 +304,23 @@ mpa::MultiGame hoa2multigame(std::istream& issr){
     G.ap_id_ = data.ap_id;
     G.labels_ = data.labels;
     G.controllable_ap_ = data.controllable_ap;
-    G.n_games_ = 1;
     G.vert_id_ = data.vert_id;
     G.max_color_ = data.max_color;
     G.colors_ = data.colors;
+
+    
+    G.n_games_ = data.all_colors.size();
+    for (auto v : G.vertices_){
+        for (size_t i = 0; i < G.n_games_; i++){
+            if (data.all_colors[i].find(v) == data.all_colors[i].end()){
+                data.all_colors[i][v] = data.minCol;
+            }
+        }
+    }
+    G.all_colors_ = data.all_colors;
+    for (size_t i = 0; i < G.n_games_; i++){
+        G.all_max_color_.push_back(G.max_col(G.all_colors_[i]));
+    }       
     return G;
 }
 mpa::Game hoa2multigame(const std::string filename){
@@ -351,11 +364,7 @@ mpa::MultiGame std2multigame(){
         return gpg2multigame(issr);
     }
 
-    mpa::MultiGame G = hoa2multigame(issr);
-    G.n_games_ = 1;
-    G.all_colors_[0] = G.colors_;
-    G.all_max_color_[0] = G.max_col(G.colors_);
-    return G;
+    return hoa2multigame(issr);
 }
 
 /*! read a game in pgsolver/ehoa format from a file and convert it to dist game

@@ -23,7 +23,7 @@ Usage: pestel [OPTION...]
 ```
 
 Inputs/Outputs:
-- STDIN: description of a parity game in extended-HOA/pgsolver format or description of a generalized parity game in pgsolver format
+- STDIN: description of a (generalized) parity game in extended-HOA/pgsolver format
 - STDOUT: a winning strategy template 
 
 The possible OPTIONs are as follows:
