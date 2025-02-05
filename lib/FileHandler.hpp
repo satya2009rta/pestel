@@ -6,12 +6,13 @@
 #include <fstream>
 #include <locale>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <cstring>
 #include <cstdlib>
 #include <chrono>
+#include <functional>
 
 #include "MultiGame.hpp"
 #include "hoa_consumer_build_parity_game.hh"
@@ -44,7 +45,7 @@ void checkMakeDir(dir_type dirName) {
  }
 
  /*! Create a file OR erase previous data written to a file
- * \param[in] filename  The name of the file*/
+ * \param[in] filename  The name of the file */
 void create(const std::string& filename) {
     std::ofstream file;
     file.open(filename, std::ofstream::out | std::ofstream::trunc);
@@ -55,52 +56,8 @@ void create(const std::string& filename) {
 
 
 ///////////////////////////////////////////////////////////////
-/// Read/Write different game formats
+/// Read games from different formats
 ///////////////////////////////////////////////////////////////
-
-/*! output a multigame to gpg format 
- * \param[in] Multigame  */
-int multigame2gpg(mpa::MultiGame& G, std::ostream& ostr = std::cout){
-    if (G.all_colors_.empty()){
-        G.n_games_ = 1;
-        G.all_colors_.push_back(G.colors_);
-    }
-    /* print first line */
-    ostr<< "parity "<< G.n_vert_-1 <<";\n"; 
-    for (size_t v = 0; v < G.n_vert_; v++){ /* print the following for each vertex */
-        ostr << v << " "; /* vertex name (number) */
-
-        ostr<<G.all_colors_[0].at(v); /* print color in 1st game separately to avoid comma */
-        for (size_t i = 1; i < G.n_games_; i++){/* for each other game print color of v with comma */
-            ostr<<","<<G.all_colors_[i].at(v);
-        }
-        
-        ostr << " " << G.vert_id_.at(v) << " "; /* print vertex id (which player it belongs to) */
-        
-        if (!G.edges_.at(v).empty()){ /* if v has neighbours then print them */
-            size_t counter = 0;
-            for (auto u : G.edges_.at(v)){ /* print all neighbours */
-                if (counter == 0){
-                    ostr <<u;
-                    counter = 1;
-                }
-                else{
-                    ostr <<","<<u;
-                }
-            }
-        }
-        ostr<<"\n";
-    }
-    return 0;
-}
-
-/*! output a game to pg format 
- * \param[in] Game  */
-int game2pg(const mpa::Game G, std::ostream& ostr = std::cout){
-    mpa::MultiGame MG;
-    MG.mergeGame(G);
-    return multigame2gpg(MG,ostr);
-}
 
 /*! read a game in extended hoa format from a file/input and convert it to normal game
  * \param[in] filename  Name of the file OR
@@ -119,6 +76,11 @@ mpa::Game hoa2game(std::istream& issr){
     G.vert_id_ = data.vert_id;
     G.max_color_ = data.max_color;
     G.colors_ = data.colors;
+    G.pre_edges_ = data.pre_edges;
+    G.init_vert_ = data.init_vert;
+    G.ap_id_ = data.ap_id;
+    G.labels_ = data.labels;
+    G.controllable_ap_ = data.controllable_ap;
 
     return G;
 }
@@ -128,85 +90,89 @@ mpa::Game hoa2game(const std::string filename){
     
 }
 
-/*! read a game in pgsolver format from a file and convert it to normal game */
-mpa::Game pg2game(std::istream& file){
-    size_t N;
-    std::vector<size_t> V_ID;
-    std::vector<std::unordered_set<size_t>> TR_final;
-    std::vector<size_t> COL;
-    std::vector<size_t> V_name;
-    std::vector<std::unordered_set<size_t>> TR;
-    std::vector<size_t> ICOL;
-    size_t max_col=0;
-        std::string line;
-        /* go through all the lines until a match with arr_name is found */
-        while(std::getline(file,line)) {
-            std::stringstream line_stream(line);
-            std::string name;
-            line_stream >> name;
-            /* check for the header line starting with "parity" */
-            if (name == "parity"){
-                break; /* break the loop when header line found */
-            }
+/*! read a game in pgsolver format from a file/input and convert it to normal game
+ * \param[in] filename  Name of the file OR
+ * \param[in] issr input stream */
+mpa::Game pg2game(std::istream& issr){
+    mpa::Game G;
+    std::string line;
+    /* go through all the lines until a match with arr_name is found */
+    while(std::getline(issr,line)) {
+        std::stringstream line_stream(line);
+        std::string name;
+        line_stream >> name;
+        /* check for the header line starting with "parity" */
+        if (name == "parity"){
+            break; /* break the loop when header line found */
         }
-        N=0; /* initialize number of vertics = 0 */
-        while(std::getline(file,line)) {
-            std::stringstream line_stream(line);
-            N = N+1;
-            /* first number is vertex id */
-            size_t id;
-            line_stream >> id;
-            /* second number is color of that vertex */
-            size_t color;
-            line_stream >> color;
-            /* third number is owner of that vertex */
-            size_t owner_id;
-            line_stream >> owner_id;
-            /* set the color and owner of that vertex */
-            V_name.push_back(id);
-            V_ID.push_back(owner_id);
-            COL.push_back(color);
-            max_col = std::max(color,max_col);
-            ICOL.push_back(color%2+1);
-            
-            std::string successors; /* string of successors of that vertex */
-            line_stream >> successors;
-            std::stringstream ss(successors);
-            std::unordered_set<size_t> trans_list;
-            /* update transitions of that vertex */
-            for (size_t i; ss >> i; ++ i) {
-                trans_list.insert(i);   
-                // std::cout << i << ",";
-                if (ss.peek() == ',')
-                    ss.ignore();
-            }
-            TR.push_back(trans_list);
+    }
+    /* initialize everything to be 0 */
+    G.n_vert_ = 0;
+    G.n_edge_ = 0;
+    G.init_vert_ = 0;
+    G.max_color_ = 0;
+    while(std::getline(issr,line)) {
+        std::stringstream line_stream(line);
+        G.n_vert_ += 1;
+        /* first number is (index of) the vertex */
+        size_t vertex;
+        line_stream >> vertex;
+        G.vertices_.insert(vertex);
+
+        /* second number is colors of that vertex */
+        size_t color; 
+        line_stream >> color;
+        G.colors_[vertex] = color;
+        /* update the max_color */
+        if (G.max_color_ < color){
+            G.max_color_ = color;
         }
-        for (auto it = TR.begin(); it != TR.end(); ++ it){
-            std::unordered_set<size_t> trans_list;
-            std::unordered_set<size_t> set = *it;
-            for (auto i : set){
-                trans_list.insert(std::distance(V_name.begin(), find(V_name.begin(),V_name.end(),i)));
-            }
-            TR_final.push_back(trans_list);
+        
+        /* third number is owner of that vertex */
+        size_t vert_id;
+        line_stream >> vert_id;
+        /* set the owner of that vertex */
+        G.vert_id_[vertex] = vert_id;
+        
+        std::string successors; /* string of successors of that vertex */
+        line_stream >> successors;
+        std::stringstream ss(successors);
+        /* update transitions of that vertex */
+        for (size_t i; ss >> i; ++ i) {
+            G.edges_[vertex].insert(i);
+            G.n_edge_ += 1;
+            if (ss.peek() == ',')
+                ss.ignore();
         }
-        // if (max_col==1){
-            // COL = ICOL; /* buchi ehoa to buchi pgsolver */
-        // }
-        mpa::Game G(N, V_ID, TR_final, COL);
-        return G;
+    }
+    return G;
 }
 mpa::Game pg2game(const std::string& filename){
     std::ifstream file(filename);
     return pg2game(file);
 }
 
+/*! read a game in pgsolver/ehoa format from a file and convert it to normal game
+ * \param[in] filename  Name of the file */
+mpa::Game file2game(const std::string& filename){
+    if(ends_with(filename, ".gm") || ends_with(filename, ".pg")){/* if the file is a .pg (pgsolver) file  */
+        return pg2game(filename);
+    }
+    else if (ends_with(filename, ".hoa") || ends_with(filename, ".ehoa")){ /* if it is a HOA file */
+        return hoa2game(filename);
+    }
+    else{
+        std::cerr << "Error: extension of the file is not clear!\n";
+        return hoa2game(filename);
+    }
+}
+
 /* read a game from std::cin */
-mpa::Game std2game(std::string& str, std::istream& file = std::cin){
+mpa::Game std2game(){
     size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
     /* construct the game from stdin */
-    std::string line;
-    while (std::getline(file, line)){
+    std::string str, line;
+    while (std::getline(std::cin, line)){
         if (pg == 2){
             std::stringstream line_stream(line);
             std::string name;
@@ -239,111 +205,122 @@ mpa::Game std2game(std::string& str, std::istream& file = std::cin){
     return hoa2game(issr);
 }
 
-/*! read a game in pgsolver/ehoa format from a file and convert it to normal game
- * \param[in] filename  Name of the file */
-mpa::Game file2game(const std::string& filename, std::string& str){
+
+///////////////////////////////////////////////////////////////
+/// Read dist-games from different formats
+///////////////////////////////////////////////////////////////
+
+
+/*! read a distributed parity game in gpgsolver format from a file/input and convert it to normal dist-game
+ * \param[in] filename  Name of the file OR
+ * \param[in] issr input stream */
+mpa::MultiGame gpg2multigame(std::istream& issr){
+    mpa::MultiGame G;
+    G.all_colors_.clear();
+    std::string line;
+    /* go through all the lines until a match with arr_name is found */
+    while(std::getline(issr,line)) {
+        std::stringstream line_stream(line);
+        std::string name;
+        line_stream >> name;
+        /* check for the header line starting with "parity" */
+        if (name == "parity"){
+            break; /* break the loop when header line found */
+        }
+    }
+    /* initialize everything */
+    G.n_vert_ = 0;
+    G.n_edge_ = 0;
+    G.init_vert_ = 0;
+    while(std::getline(issr,line)) {
+        std::stringstream line_stream(line);
+        G.n_vert_ += 1;
+        /* first number is (index of) the vertex */
+        size_t vertex;
+        line_stream >> vertex;
+        G.vertices_.insert(vertex);
+        /* second string is colors of that vertex */
+        std::string colors; /* string of colors of that vertex */
+        line_stream >> colors;
+        std::stringstream ss_col(colors);
+        /* add the colors of that vertex */
+        size_t counter_games = 0;
+        for (size_t col; ss_col >> col; ++ col){
+            if (counter_games == G.all_colors_.size()){
+                G.all_colors_.push_back(std::map<size_t, size_t>());
+                G.all_max_color_.push_back(0);
+            }
+            G.all_colors_[counter_games][vertex] = col;
+            /* update the max_colors */
+            if (G.all_max_color_[counter_games] < col){
+                G.all_max_color_[counter_games] = col;
+            }
+            if (ss_col.peek() == ',')
+                ss_col.ignore();
+            counter_games += 1;
+        }
+        
+        /* third number is owner of that vertex */
+        size_t vert_id;
+        line_stream >> vert_id;
+        /* set the owner of that vertex */
+        G.vert_id_[vertex] = vert_id;
+        
+        std::string successors; /* string of successors of that vertex */
+        line_stream >> successors;
+        std::stringstream ss(successors);
+        /* update transitions of that vertex */
+        for (size_t i; ss >> i; ++ i) {
+            G.edges_[vertex].insert(i);
+            G.n_edge_ += 1;
+            if (ss.peek() == ',')
+                ss.ignore();
+        }
+    }
+    G.n_games_ = G.all_colors_.size();
+    return G;
+}
+mpa::MultiGame gpg2multigame(const std::string& filename){
     std::ifstream file(filename);
-    return std2game(str,file);
+    return gpg2multigame(file);
 }
 
+/*! read a game in extended hoa format from a file/input and convert it to dist game
+ * \param[in] filename  Name of the file OR
+ * \param[in] issr input stream */
+mpa::MultiGame hoa2multigame(std::istream& issr){
+    mpa::MultiGame G;
+    cpphoafparser::HOAConsumer::ptr consumer;
+    cpphoafparser::parity_game_data data;
+    consumer.reset(new cpphoafparser::HOAConsumerBuildParityGame(&data));
+    cpphoafparser::HOAParser::parse(issr, consumer);
 
-
-
-
-/*! read a generalized parity game in gpgsolver format from a file and convert it to normal game
- * \param[in] file  filestream or Name of the file
-*/
-mpa::MultiGame gpg2multgame(std::istream& file){
-    size_t N;
-    std::vector<size_t> V_ID;
-    std::vector<std::unordered_set<size_t>> TR_final;
-    size_t N_GAME;
-    std::vector<std::vector<size_t>> ALL_COL;
-    std::vector<size_t> V_name;
-    std::vector<std::unordered_set<size_t>> TR;
-        std::string line;
-        /* go through all the lines until a match with arr_name is found */
-        while(std::getline(file,line)) {
-            std::stringstream line_stream(line);
-            std::string name;
-            line_stream >> name;
-            /* check for the header line starting with "parity" */
-            if (name == "parity"){
-                break; /* break the loop when header line found */
-            }
-        }
-        N=0; /* initialize number of vertics = 0 */
-        N_GAME = 0; /* initialize number of games = 0 */
-        bool n_games_set = false; /* if the number of games is known */
-        while(std::getline(file,line)) {
-            std::stringstream line_stream(line);
-            N = N+1;
-            /* first number is vertex id */
-            size_t id;
-            line_stream >> id;
-            /* second string is colors of that vertex */
-            std::string colors; /* string of colors of that vertex */
-            line_stream >> colors;
-            std::stringstream ss_col(colors);
-            /* add the colors of that vertex */
-            if (!n_games_set){ /* first time when number of games is not known */
-                for (size_t i; ss_col >> i; ++ i) {
-                    N_GAME += 1;
-                    ALL_COL.push_back(std::vector<size_t>(1,i)); /* insert a new vector of colors with first color i */
-                    if (ss_col.peek() == ',')
-                        ss_col.ignore();
-                }
-                n_games_set = true;
-            }
-            else{
-                size_t counter_games = 0; /* number of colors seen - 1 */
-                for (size_t i; ss_col >> i; ++ i) {
-                    ALL_COL[counter_games].push_back(i);
-                    counter_games += 1;
-                    if (ss_col.peek() == ',')
-                        ss_col.ignore();
-                }
-            }
-            /* third number is owner of that vertex */
-            size_t owner_id;
-            line_stream >> owner_id;
-            /* set the owner of that vertex */
-            V_name.push_back(id);
-            V_ID.push_back(owner_id);
-            
-            std::string successors; /* string of successors of that vertex */
-            line_stream >> successors;
-            std::stringstream ss(successors);
-            std::unordered_set<size_t> trans_list;
-            /* update transitions of that vertex */
-            for (size_t i; ss >> i; ++ i) {
-                trans_list.insert(i);   
-                // std::cout << i << ",";
-                if (ss.peek() == ',')
-                    ss.ignore();
-            }
-            TR.push_back(trans_list);
-        }
-        for (auto it = TR.begin(); it != TR.end(); ++ it){
-            std::unordered_set<size_t> trans_list;
-            std::unordered_set<size_t> set = *it;
-            for (auto i : set){
-                trans_list.insert(std::distance(V_name.begin(), find(V_name.begin(),V_name.end(),i)));
-            }
-            TR_final.push_back(trans_list);
-        }
-        mpa::MultiGame G(N, V_ID, TR_final, N_GAME, ALL_COL);
-        return G;
+    G.n_vert_ = data.n_vert;
+    G.n_edge_ = data.n_edge;
+    G.vertices_ = data.vertices;
+    G.edges_ = data.edges;
+    G.pre_edges_ = data.pre_edges;
+    G.init_vert_ = data.init_vert;
+    G.ap_id_ = data.ap_id;
+    G.labels_ = data.labels;
+    G.controllable_ap_ = data.controllable_ap;
+    G.n_games_ = 1;
+    G.vert_id_ = data.vert_id;
+    G.max_color_ = data.max_color;
+    G.colors_ = data.colors;
+    return G;
 }
-mpa::MultiGame gpg2multgame(const std::string& filename){
-        std::ifstream file(filename);
-        return gpg2multgame(file);
+mpa::Game hoa2multigame(const std::string filename){
+    std::ifstream file(filename);
+    return hoa2multigame(file);
 }
-mpa::MultiGame std2multgame(std::string& str, std::istream& file = std::cin){
+
+/* read a dist-game from std::cin */
+mpa::MultiGame std2multigame(){
     size_t pg = 2; /* determine if the format is psolver (default: 2 = undecided) */
     /* construct the game from stdin */
-    std::string line;
-    while (std::getline(file, line)){
+    std::string str, line;
+    while (std::getline(std::cin, line)){
         if (pg == 2){
             std::stringstream line_stream(line);
             std::string name;
@@ -371,15 +348,261 @@ mpa::MultiGame std2multgame(std::string& str, std::istream& file = std::cin){
     }
     std::istringstream issr(str);
     if (pg == 1){
-        return gpg2multgame(issr);
+        return gpg2multigame(issr);
     }
-    mpa::MultiGame G;
-    G.mergeGame(hoa2game(issr));
+
+    mpa::MultiGame G = hoa2multigame(issr);
+    G.n_games_ = 1;
+    G.all_colors_[0] = G.colors_;
+    G.all_max_color_[0] = G.max_col(G.colors_);
     return G;
 }
-mpa::MultiGame file2multgame(const std::string& filename, std::string& str){
-    std::ifstream file(filename);
-    return std2multgame(str, file);
+
+/*! read a game in pgsolver/ehoa format from a file and convert it to dist game
+ * \param[in] filename  Name of the file */
+mpa::MultiGame file2multigame(const std::string& filename){
+    if(ends_with(filename, ".gm") || ends_with(filename, ".pg")){/* if the file is a .pg (pgsolver) file  */
+        return gpg2multigame(filename);
+    }
+    else if (ends_with(filename, ".hoa") || ends_with(filename, ".ehoa")){ /* if it is a HOA file */
+        return hoa2multigame(filename);
+    }
+    else{
+        std::cerr << "Error: extension of the file is not clear!\n";
+        return hoa2multigame(filename);
+    }
 }
 
 
+///////////////////////////////////////////////////////////////
+/// Write games to HOA formats
+///////////////////////////////////////////////////////////////
+
+/* function: print_acceptance */
+std::string print_acceptance(const size_t k) {
+    std::string output;
+    if (k == 0){
+        output = "Inf(0)";
+    }
+    else if (k == 1){
+        output = "Fin(1) & Inf(0)";
+    }
+    else if (k%2 == 1){
+        output = "Fin("+std::to_string(k)+") & (" + print_acceptance(k-1) + ")";
+    }
+    else{
+        output = "Inf("+std::to_string(k)+") | (" + print_acceptance(k-1) + ")";
+    }
+    return output;
+}
+
+/* function: print_label
+*
+* print out the label of state */
+std::string print_label(const mpa::Game G, size_t u, const bool num = true) {
+    std::string output;
+    std::string output_num;
+    size_t start = 1;
+    for (size_t i = 0; i < G.ap_id_.size(); i++){
+        if (G.labels_.at(u)[i] == 0){
+            if (start == 1){
+                start = 0;
+                output += "!"+G.ap_id_.at(i);
+                output_num += "!" + std::to_string(i);
+            }
+            else{
+                output += " & !"+G.ap_id_.at(i);
+                output_num += "&!" + std::to_string(i);
+            }
+        }
+        else if (G.labels_.at(u)[i] == 1){
+            if (start == 1){
+                start = 0;
+                output += G.ap_id_.at(i);
+                output_num += std::to_string(i);
+            }
+            else{
+                output += " & "+ G.ap_id_.at(i);
+                output_num += "&"+std::to_string(i);
+            }
+        }
+    }
+    if (output.empty()){
+        output = "*";
+        output_num = "t";
+    }
+    if (!num){
+        return output;
+    }
+    return output_num;
+}
+
+/*! print out (to a file if given) the game in hoa format 
+ * \param[in] Game  */  
+int game2hoa(const mpa::Game G, std::ostream& ostr = std::cout) {
+    size_t n_vertices = G.n_vert_ - G.n_edge_/2;
+    ostr << "HOA: v1\n";
+    ostr << "States: "<< n_vertices << "\n";
+    ostr << "Start: "<< G.init_vert_ << "\n";
+    ostr << "AP: "<< G.ap_id_.size();
+    for (auto pair : G.ap_id_){
+        ostr << " \"" << pair.second << "\"";
+    }
+    ostr << "\nacc-name: parity max even "<< G.max_color_+1<< "\n";
+    ostr << "Acceptance: " << G.max_color_+1 << " " << print_acceptance(G.max_color_)<<"\n";
+    ostr << "properties: trans-labels explicit-labels trans-acc deterministic\n";
+    ostr << "spot-state-player:";
+    for (size_t i = 0; i < n_vertices; i++){
+        ostr << " " << 1-G.vert_id_.at(i);
+    }
+    ostr << "\ncontrollable-AP:";
+    for (auto a : G.controllable_ap_){
+        ostr << " " << a;
+    }
+    /* print the body */
+    ostr << "\n--BODY--\n";
+    for (size_t u = 0; u < n_vertices; u++){
+        if (G.vert_id_.at(u) != 2){
+            ostr << "State: "<< u;
+            if (!G.state_names_.empty()){
+                ostr << " \""<<G.state_names_.at(u)<<"\"";
+            }
+            ostr << "\n";
+            for (auto v : G.edges_.at(u)){
+                ostr << "[" << print_label(G,v,true) << "] ";
+                ostr << *G.edges_.at(v).begin();
+                ostr << " {" << G.colors_.at(v)<<"}";
+                ostr << "\n";
+            }
+        }
+    }
+    ostr << "--END--\n";
+    return 1;
+}
+
+
+///////////////////////////////////////////////////////////////
+/// Write dist-games to different formats
+///////////////////////////////////////////////////////////////
+
+
+/*! print out (to a file if given) the dist-game in hoa format 
+ * \param[in] MultiGame  */
+int multigame2hoa(mpa::MultiGame& G, std::ostream& ostr = std::cout) {
+    size_t n_vertices = G.n_vert_ - G.n_edge_/2;
+    ostr << "HOA: v1\n";
+    ostr << "States: "<< n_vertices << "\n";
+    ostr << "Start: "<< G.init_vert_ << "\n";
+    ostr << "AP: "<< G.ap_id_.size();
+    for (auto pair : G.ap_id_){
+        ostr << " \"" << pair.second << "\"";
+    }
+    size_t max_color = 0;
+    for (auto c : G.all_max_color_){
+        max_color = std::max(max_color, c);
+    }
+    
+    ostr << "\nacc-name: parity max even "<< max_color +1<< "\n";
+    ostr << "Acceptance: " << max_color +1 << " " << print_acceptance(max_color)<<"\n";
+    ostr << "properties: trans-labels explicit-labels trans-acc deterministic\n";
+    ostr << "spot-state-player:";
+    for (size_t i = 0; i < n_vertices; i++){
+        ostr << " " << 1-G.vert_id_.at(i);
+    }
+    ostr << "\ncontrollable-AP:";
+    for (auto a : G.controllable_ap_){
+        ostr << " " << a;
+    }
+    /* print the body */
+    ostr << "\n--BODY--\n";
+    for (size_t u = 0; u < n_vertices; u++){
+        if (G.vert_id_.at(u) != 2){
+            ostr << "State: "<< u;
+            if (!G.state_names_.empty()){
+                ostr << " \""<<G.state_names_.at(u)<<"\"";
+            }
+            ostr << "\n";
+            for (auto v : G.edges_.at(u)){
+                ostr << "[" << print_label(G,v,true) << "] ";
+                ostr << *G.edges_.at(v).begin();
+                ostr << " {";
+                // G.all_colors_[0].at(v) << " "<<G.all_colors_[1].at(v);
+                for (size_t i = 0; i < G.n_games_; i++){
+                    ostr << G.all_colors_[i].at(v);
+                    if (i < G.n_games_-1){
+                        ostr << " ";
+                    }
+                }
+                ostr << "}\n";
+            }
+        }
+    }
+    ostr << "--END--\n";
+    return 1;
+}
+
+/*! output a multigame to gpg (gpg) format 
+ * \param[in] MultiGame  */
+int multigame2gpg(mpa::MultiGame& G, std::ostream& ostr = std::cout){
+    /* print first line */
+    ostr<< "parity "<< G.n_vert_-1 <<";\n"; 
+        
+    for (size_t v = 0; v < G.n_vert_; v++){ /* print the following for each vertex */
+        ostr << v << " "; /* vertex name (number) */
+        ostr<<G.all_colors_[0].at(v); /* print color in 1st game separately to avoid comma */
+        if (G.n_games_ > 1){
+            for (size_t i = 1; i < G.n_games_; i++){/* for each other game print color of v with comma */
+                ostr<<","<<G.all_colors_[i].at(v);
+            }
+        }
+
+        ostr << " " << G.vert_id_.at(v) << " "; /* print vertex id (which player it belongs to) */
+        
+        if (!G.edges_.at(v).empty()){ /* if v has neighbours then print them */
+            size_t counter = 0;
+            for (auto u : G.edges_.at(v)){ /* print all neighbours */
+                if (counter == 0){
+                    ostr <<u;
+                    counter = 1;
+                }
+                else{
+                    ostr <<","<<u;
+                }
+            }
+        }
+        ostr<<"\n";
+    }
+    return 0;
+}
+
+/*! output a multigame to file/output
+ * \param[in] MultiGame  */
+int multigame2std(mpa::MultiGame& G, std::ostream& ostr = std::cout, const std::string format = "hoa"){
+    if (G.labels_.empty() || format != "hoa"){
+        return multigame2gpg(G, ostr);
+    }
+    return multigame2hoa(G, ostr);
+}
+
+///////////////////////////////////////////////////////////////
+/// Write games to other formats
+///////////////////////////////////////////////////////////////
+
+/*! output a game to pg format 
+ * \param[in] Game  */
+int game2pg(const mpa::Game G, std::ostream& ostr = std::cout){
+    mpa::MultiGame G1(G);
+    G1.n_games_ = 1;
+    G1.all_colors_.push_back(G.colors_);
+    G1.all_max_color_.push_back(G.max_color_);
+    return multigame2gpg(G1, ostr);
+}
+
+/*! output a game to file/output
+ * \param[in] Game  */
+int game2std(mpa::Game G, std::ostream& ostr = std::cout, const std::string format = "hoa"){
+    if (G.labels_.empty() || format != "hoa"){
+        return game2pg(G, ostr);
+    }
+    return game2hoa(G, ostr);
+}

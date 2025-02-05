@@ -6,14 +6,11 @@
 
 #include <functional>
 
-#include "MultiGame.hpp"
 #include "FileHandler.hpp"
 
 int main() {
     try {
-        mpa::MultiGame G;
-        std::string game_str;
-        G.mergeGame(std2game(game_str));
+        mpa::MultiGame G(std2game());
 
         /* convert it to generalized parity game (multi-game) */
         G.parityToMultigame();

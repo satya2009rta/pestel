@@ -1,14 +1,13 @@
 /*
  * Class: MultiGame
  *
- * Class formalizing two parity games
+ * Class formalizing generalized (multi-objective) parity games
  */
 
 #ifndef MULTIGAME_HPP_
 #define MULTIGAME_HPP_
 
 #include "Game.hpp"
-#include <chrono>
 #include <random>
 
 // #include "FileHandler.hpp"
@@ -17,53 +16,27 @@
 namespace mpa {
 class MultiGame: public Game {
 public:
-    /* number games */
-    size_t n_games_;
-    /* all_colors: the i-th vector represents i-th color set */
+    /* all maximum of colors */
+    std::vector<size_t> all_max_color_;
+    /* all_colors: the i-th vector represents i-th color set (for i=1,2)*/
     std::vector<std::map<size_t, size_t>> all_colors_;
+    /* number of objectives (0th one for player 0, rest for player 1)*/
+    size_t n_games_;
     
 public:
-    /* basic constructor from given explicit representation of multiple games */
-    MultiGame(size_t n_vert,
-        std::vector<size_t> vert_id,
-        std::vector<std::unordered_set<size_t>> tr,
-        size_t n_games,
-        std::vector<std::vector<size_t>> all_colors): Game(n_vert, vert_id, tr, all_colors[0]), n_games_(n_games){
-        /* compute the maximum color */
-        max_color_ = 0;
-        for (auto colors : all_colors){
-            std::map<size_t, size_t> cols;
-            for (size_t i = 0; i < n_vert_; i++){
-                max_color_ = std::max(max_color_, colors[i]);
-                cols.insert(std::make_pair(i, colors[i]));
-            }
-            all_colors_.push_back(cols);
-        }
+    /* default constructor */
+    MultiGame(): Game() {
+        n_games_ = 2;
+        all_max_color_ = std::vector<size_t>(2,0);
+        all_colors_ = std::vector<std::map<size_t, size_t>>(2,std::map<size_t, size_t>());
     }
 
-    /* basic constructor from given explicit representation of a single game */
-    MultiGame(size_t n_vert,
-         std::vector<size_t> vert_id,
-         std::vector<std::unordered_set<size_t>> tr,
-         std::vector<size_t> colors): Game(n_vert, vert_id, tr, colors){
+    /* copy a normal game */
+    MultiGame(const Game other): Game(other){
         n_games_ = 1;
+        all_max_color_.push_back(max_color_);
         all_colors_.push_back(colors_);
     }
-
-    /* copy constructor */
-    MultiGame(const MultiGame& other): Game(other) {
-        n_vert_ = other.n_vert_;
-        n_edge_ = other.n_edge_;
-        vertices_ = other.vertices_;
-        edges_ = other.edges_;
-        vert_id_ = other.vert_id_;
-        max_color_ = other.max_color_;
-        n_games_ = other.n_games_;
-        all_colors_ = other.all_colors_;
-    }
-
-    /* default constructor */
-    MultiGame(): Game() {}
 
     ///////////////////////////////////////////////////////////////
     ///MultiGame operators
@@ -80,6 +53,7 @@ public:
             max_color_ = newGame.max_color_;
             n_games_ = 1;
             all_colors_.push_back(newGame.colors_);
+            all_max_color_.push_back(max_color_);
             colors_ = newGame.colors_;
         }
         else{
@@ -89,12 +63,19 @@ public:
             n_games_ += 1; /* number of games is increased by one */
             max_color_ = std::max(max_color_, newGame.max_color_); /* max_color is updated */
             all_colors_.push_back(newGame.colors_); /* colors is added to all_colors vector */
+            all_max_color_.push_back(newGame.max_color_); /* max_color is added to all_max_color vector */
         }
     }
 
     /* find the n-th game */
     Game nthGame(const size_t n) const{
-        mpa::Game game(*this);
+        mpa::Game game;
+        game.n_vert_ = n_vert_;
+        game.n_edge_ = n_edge_;
+        game.vertices_ = vertices_;
+        game.init_vert_ = init_vert_;
+        game.vert_id_ = vert_id_;
+        game.edges_ = edges_;
         game.colors_ = all_colors_[n];
         game.max_color_ = max_col(game.colors_);
         return game;
@@ -111,10 +92,167 @@ public:
         colors_ = other.colors_;
         n_games_ = other.n_games_;
         all_colors_ = other.all_colors_;
+        all_max_color_ = other.all_max_color_;
     }
 
+
     ///////////////////////////////////////////////////////////////
-    ///Game to multigame with random sets of colors
+    ///Product of two games
+    ///////////////////////////////////////////////////////////////
+
+    /* compute product of two games */
+    int product_games(const Game game1, const Game game2, const bool hoa = true) {
+        *this = MultiGame(); /* clear the game */
+        n_games_ = 2; /* number of objective is two */
+
+        std::map<std::pair<size_t,size_t>,size_t> product_verts; /* map of product of vertices to new vertieces */
+
+        /* if one game is empty then return empty */
+        if (game1.n_vert_ == 0 || game2.n_vert_ == 0){
+            return 1;
+        }
+        /* update the aps : ids of aps in all 3 games */
+        std::vector<std::vector<size_t>> common_aps; /* ids of common aps */
+        std::vector<std::vector<size_t>> first_aps; /* only first ap-ids */
+        std::vector<std::vector<size_t>> second_aps; /* only second ap-ids */
+        std::map<size_t,size_t> second_aps_map; /* map for second aps to update controllable_aps */
+        std::map<size_t,size_t> first_aps_map; /* map for first aps to update controllable_aps */
+        std::set<size_t> common_in_second; /* id of commons aps in second game -- need to compute second_aps */
+        for (size_t i = 0; i < game1.ap_id_.size(); i++){
+            bool common = false; /* if i-th vertex is common in both game */
+            for (size_t j = 0; j < game2.ap_id_.size(); j++){
+                if (game1.ap_id_.at(i) == game2.ap_id_.at(j)){ /* i-th vertex is common */
+                    common_aps.push_back(std::vector<size_t>{ap_id_.size(),i,j}); /* add it in common_aps vector with ids in all games */
+                    second_aps_map[j] = ap_id_.size();
+                    common_in_second.insert(j); 
+                    common = true; /* set common to true */
+                    break;
+                }
+            }
+            if (!common){/* if not common then add it to first_aps */
+                first_aps.push_back(std::vector<size_t>{ap_id_.size(),i});
+            }
+            /* add this ap and its label to new game */
+            first_aps_map[i] = ap_id_.size();
+            ap_id_[ap_id_.size()] = game1.ap_id_.at(i);
+        }
+        for (size_t j = 0; j < game2.ap_id_.size(); j++){ /* iterate over all aps of 2nd game */
+            if (common_in_second.find(j) == common_in_second.end()){ /* if it is not common then add it to second_aps and new game */
+                second_aps.push_back(std::vector<size_t>{ap_id_.size(),j});
+                ap_id_[ap_id_.size()] = game2.ap_id_.at(j);
+                second_aps_map[j] = ap_id_.size();
+            }
+        }
+
+        /* update the controllable_aps */
+        for (size_t a : game1.controllable_ap_){
+            controllable_ap_.insert(first_aps_map.at(a));
+        }
+        for (size_t a : game2.controllable_ap_){
+            controllable_ap_.insert(second_aps_map.at(a));
+        }
+        
+
+        /* initial vertex should be of same player in both games */
+        if (game1.vert_id_.at(game1.init_vert_) != game2.vert_id_.at(game2.init_vert_)){
+            std::cerr << "Error: vertex ids of both games are not same!\n";
+        }
+        /* insert initial vertex and update all variables */
+        n_vert_ = 1;
+        size_t org_vert = 1; /* counter for normal vertices */
+        size_t edge_vert = (game1.n_vert_-game1.n_edge_/2)*(game2.n_vert_-game2.n_edge_/2); /* counter for edge-vertices */
+        vertices_.insert(0); 
+        init_vert_ = 0;
+        vert_id_[0] = game1.vert_id_.at(game1.init_vert_);
+        all_colors_[0][0] = game1.colors_.at(game1.init_vert_);
+        all_colors_[1][0] = game2.colors_.at(game2.init_vert_);
+        product_verts.insert({std::make_pair(game1.init_vert_,game2.init_vert_),0});
+
+        /* maintain a stack to explore new (product) vertices */
+        std::stack<std::vector<size_t>> stack_list;
+        /* initialize the stack with initial vertex */
+        stack_list.push(std::vector<size_t>{0,game1.init_vert_,game2.init_vert_});
+
+        /* explore until the stack list is empty */
+        while (!stack_list.empty()){
+            std::vector<size_t> curr = stack_list.top(); /* current pair of vertices */
+            stack_list.pop(); /* pop the top element from stack list */
+            for (auto u : game1.edges_.at(curr[1])){ /* for each edge-neighbour of 1st vertex */
+                for (auto v : game2.edges_.at(curr[2])){ /* for each edge-neihbour of 2nd vertex */
+                    bool valid = true; /* if product of these two edges is possible */
+                    std::vector<size_t> temp_common(ap_id_.size(),2); /* needed if possible, temporarily store the ids of this new edge */
+                    for (auto ap : common_aps){ /* first go through common aps */
+                        if (game1.labels_.at(u)[ap[1]]+game2.labels_.at(v)[ap[2]] == 1){
+                            valid = false; /* one of the id of this ap is 1 and other is 0, so not valid product */
+                            break;
+                        }
+                        /* if this ap is consistent in both edges then add its label to temp_common */
+                        else if (game1.labels_.at(u)[ap[1]] == 0 || game2.labels_.at(v)[ap[2]] == 0){
+                            temp_common[ap[0]] = 0;
+                        }
+                        else if (game1.labels_.at(u)[ap[1]] == 1 || game2.labels_.at(v)[ap[2]] == 1){
+                            temp_common[ap[0]] = 1;
+                        }
+                    }
+                    if (valid){ /* if the product-edge is valid */
+                        /* update its temp_common to all ids */
+                        for (auto ap : first_aps){
+                            temp_common[ap[0]] = game1.labels_.at(u)[ap[1]];
+                        }
+                        for (auto ap : second_aps){
+                            temp_common[ap[0]] = game2.labels_.at(v)[ap[1]];
+                        }
+                        size_t newId = org_vert; 
+                        if (hoa){
+                            newId = edge_vert;/* new state for product-edges : use edge_vert counter */
+                            edge_vert += 1;
+                        }
+                        else{
+                            org_vert += 1;
+                        }
+                        /* update all variables for new game */
+                        n_vert_ += 1;
+                        n_edge_ += 2;
+                        vertices_.insert(newId);
+                        vert_id_[newId] = 2;
+                        edges_[curr[0]].insert(newId);
+                        labels_[newId] = temp_common;
+                        all_colors_[0][newId] = game1.colors_.at(u);
+                        all_colors_[1][newId] = game2.colors_.at(v);
+
+                        /* product of end-states of these edges */
+                        std::pair<size_t,size_t> new_succ = std::make_pair(*game1.edges_.at(u).begin(),*game2.edges_.at(v).begin());
+                        if (product_verts.find(new_succ) != product_verts.end()){ /* if the product of end-states of edges are already present add the edge */
+                            edges_[newId].insert(product_verts.at(new_succ));
+                            pre_edges_[product_verts.at(new_succ)].insert(newId);
+                        }
+                        else{ /* if the product of end-states of edges are not present */
+                            size_t succId = org_vert; /* new state for the product-successor-states : use org_vert counter */
+                            /* update all variables in the new game */
+                            org_vert += 1;
+                            n_vert_ += 1;
+                            vertices_.insert(succId);
+                            vert_id_[succId] = game1.vert_id_.at(new_succ.first);
+                            edges_[newId].insert(succId);
+                            pre_edges_[succId].insert(newId);
+                            all_colors_[0][succId] = game1.colors_.at(new_succ.first);
+                            all_colors_[1][succId] = game2.colors_.at(new_succ.second);
+                            product_verts[new_succ] = succId;
+                            stack_list.push(std::vector<size_t>{succId,new_succ.first,new_succ.second});
+                        }
+                    }
+                }
+            }
+        }
+        /* update max_color */
+        all_max_color_[0] = max_col(all_colors_[0]); 
+        all_max_color_[1] = max_col(all_colors_[1]); 
+        return 1;
+    }
+
+
+    ///////////////////////////////////////////////////////////////
+    ///Game to MultiGame with random sets of colors
     ///////////////////////////////////////////////////////////////
 
     /* generate and add n_games sets of colors to get a multigame */
@@ -164,10 +302,10 @@ public:
     }
 
     /* random number from [0,n] */
-    size_t random_num(const size_t max) const {
+    size_t random_num(const size_t max, const size_t min = 0){
         std::random_device rd; /* obtain a random number from hardware */
         std::mt19937 gen(rd()); /* seed the generator */
-        std::uniform_int_distribution<> distr(0, max); /* define the range */
+        std::uniform_int_distribution<> distr(min, max); /* define the range */
 
         return distr(gen); /* generate numbers */
     }
@@ -178,86 +316,64 @@ public:
     ///////////////////////////////////////////////////////////////
     
     /* compute the composition of permissive strategy template for two games */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> find_composition_template(std::map<size_t, std::unordered_set<size_t>>& unsafe_edges,
-                                    std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                                    std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set) const {
+    std::pair<std::set<size_t>, std::set<size_t>> find_composition_template(Template& strat) const {
         /* clear the template */
-        colive_edge_set.clear();
-        live_group_set.clear();
+        strat.clear();
 
         /* solve the games without changing anything in the original game */
         MultiGame multigame_copy(*this); /* copy of the multi-game */
-        auto winning_region = multigame_copy.recursive_composition_template(colive_edge_set, live_group_set);
+        auto winning_region = multigame_copy.recursive_composition_template(strat);
         /* unsafe edges are the player 0's edges from winning region to losing region */
-        unsafe_edges = edges_between(winning_region.first, set_complement(winning_region.first));
+        strat.unsafe_edges_ = edges_between(winning_region.first, set_complement(winning_region.first));
         /* return winning region */
         return winning_region;
     }
 
     /* recursively compute the composition of strategy template for two games */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> recursive_composition_template(std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                                    std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set,
-                                    const bool add_spec = false) {
-        auto winning_region = std::make_pair(vertices_, std::unordered_set<size_t> {}); /* winning region of the games */
-        std::vector<std::unordered_set<size_t>> i_winning_regions(n_games_); /* winning region of i-th game */
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> i_colive_edge_sets(n_games_); /* colive edges for i-th game */
-        std::vector<std::vector<std::map<size_t, std::unordered_set<size_t>>>> i_live_group_sets(n_games_); /* live-groups for i-th game */
-        std::unordered_set<size_t> colive_vertices; /* vertices with color 2d+1 */
+    std::pair<std::set<size_t>, std::set<size_t>> recursive_composition_template(Template& strat) {
+        auto winning_region = std::make_pair(vertices_, std::set<size_t> {}); /* winning region of the games */
+        std::vector<std::set<size_t>> losing_regions(n_games_); /* losing region of i-th game */
+        std::vector<Template> i_templates(n_games_); /* templates of i-th game */
+        std::set<size_t> colive_vertices; /* vertices with color 2d+1 */
         // size_t counter = 0; /* count thenumber of iteration */
-
+        
         if (n_games_ == 1){ /* if there is only one game, solve in standard way */
             Game game = nthGame(0);
-            winning_region =  game.recursive_strategy_template_parity(colive_edge_set,live_group_set);
-            /* print to analyze the results */
-            // std::cout << "couter:"<<counter<< "  colive:"<<colive_vertices.size()<<"  winning:"<<winning_region.first.size()<<"\n"; 
+            winning_region =  game.recursive_strategy_template_parity(strat);
             return winning_region; /* return winning region */
         }
 
-        bool new_spec = add_spec; /* another boolean variable for new/add_spec as we want to modify it later */
         while (true){/* iterate until there is no need to solve any game again */
-            if (new_spec){ /* if a new_spec is added to previous game */    
-                size_t i = n_games_-1;
-                mpa::Game game = nthGame(i); /* i-th game */
-                /* compute template and winning region of i-th game */
-                i_winning_regions[i] = game.recursive_strategy_template_parity(i_colive_edge_sets[i], i_live_group_sets[i]).first;
-            }
-            else{ /* no new_spec, we start a new itearation */
-                /* compute template for every game */
-                #pragma omp parallel
-                #pragma omp for 
-                for (size_t i = 0; i < n_games_; i++){
-                    size_t colive_color = max_odd(all_colors_[i]); /* minimum odd color >= max color */
-                    for (const size_t v : colive_vertices){/* set color of all colive vertices colive_color */
-                        all_colors_[i].at(v) = colive_color;
-                    }
-                    mpa::Game game = nthGame(i); /* i-th game */
-                    
-                    /* compute template and winning region of i-th game */
-                    i_winning_regions[i] = game.recursive_strategy_template_parity(i_colive_edge_sets[i], i_live_group_sets[i]).first;
-                }
-            }
-
-            /* compute intersection of all winning regions and merge the templates */
+            // /* print to analyze the results */
+            // std::cout << "couter begins:"<<counter<< "  colive:"<<colive_vertices.size()<<"  winning:"<<winning_region.first.size()<<"\n"; 
+            /* compute template for every game */
+            #pragma omp parallel
+            #pragma omp for 
             for (size_t i = 0; i < n_games_; i++){
-                if (new_spec){
-                    i = n_games_-1;
-                    new_spec = false; /* set new_spec to false */
+                size_t colive_color = max_odd(all_colors_[i]); /* minimum odd color >= max color */
+                for (const size_t v : colive_vertices){/* set color of all colive vertices colive_color */
+                    all_colors_[i].at(v) = colive_color;
                 }
-                winning_region.first = set_intersection(winning_region.first,i_winning_regions[i]);
-                for (auto v : vertices_){
-                    set_merge(colive_edge_set[v],i_colive_edge_sets[i][v]);
-                }
-                live_group_set.insert(live_group_set.end(), i_live_group_sets[i].begin(),i_live_group_sets[i].end());
-                i_colive_edge_sets[i].clear();
-                i_live_group_sets[i].clear();
+                mpa::Game game = nthGame(i); /* i-th game */
+                
+                /* compute template and winning region of i-th game */
+                losing_regions[i] = nthGame(i).recursive_strategy_template_parity(i_templates[i]).second;
             }
-            winning_region.second = set_complement(winning_region.first); /* compute total losing region */
-            colive_vertices.clear(); /* clear the colive vertices for new iteration */
+            
+            /* compute the overall winning region */
+            winning_region.second = nthGame(0).solve_reachability_game(set_union(losing_regions),{}).first; 
+            winning_region.first = set_complement(winning_region.second);
+
+            /* merge all templates */
+            strat.merge_live_colive(i_templates);
+
+            /* clear the colive vertices for new iteration */
+            colive_vertices.clear(); 
             
             /* compute conflicts by colive edges (containing all outgoing edges of a vertex) */
-            conflict_colive(colive_edge_set, winning_region, colive_vertices);
+            conflict_colive(strat.colive_edges_, winning_region, colive_vertices);
             /* compute conflicts by colive edges and live groups */
-            conflict_live_colive(live_group_set, colive_edge_set, winning_region, colive_vertices);
+            conflict_live_colive(strat.live_groups_, strat.colive_edges_, winning_region, colive_vertices);
 
             /* first remove losing region from everywhere */
             remove_vertices(winning_region.second);
@@ -266,7 +382,7 @@ public:
             
             /* print to analyze the results */
             // counter += 1;
-            // if (counter <= 2){
+            // if (counter <= 5){
             //     std::cout << "couter:"<<counter<< "  colive:"<<colive_vertices.size()<<"  losing:"<<winning_region.second.size()<<"\n";
             // }
             
@@ -274,33 +390,33 @@ public:
             /* check if there is no conflicts by live groups and colive edges */
             if (colive_vertices.empty()){/* if no conflicts by live colive edges, then check conflict by unsafe edges */
                 /* check if there is no conflicts by unsafe edges */
-                if (!conflict_unsafe(live_group_set, colive_edge_set, winning_region)){
+                if (!conflict_unsafe(strat.live_groups_, strat.colive_edges_, winning_region)){
                     /* remove the unsafe edges and edges from losing region from colive edge set */
-                    map_remove_vertices(colive_edge_set, winning_region.second);
+                    map_remove_vertices(strat.colive_edges_, winning_region.second);
                     /* remove the restrictions on losing regions and colive edges from live group (as there is other choice from that source) */
-                    for (auto& live_group : live_group_set){
+                    for (auto& live_group : strat.live_groups_){
                         map_remove_keys(live_group, winning_region.second);
-                        map_remove(live_group, colive_edge_set);
+                        map_remove(live_group, strat.colive_edges_);
                     }
-                    /* remove duplicates in live_group_set */
-                    vec_erase_duplicate(live_group_set);
                     break; /* break the loop as there is no more conflict */
                 }
             }
 
             /* clear the template */
-            colive_edge_set.clear();
-            live_group_set.clear();
+            strat.clear();
+            for (size_t i = 0; i < n_games_; i++){
+                i_templates[i].clear();
+            }
         }
-        /* print to analyze the results */
+        // /* print to analyze the results */
         // std::cout << "couter:"<<counter<< "  colive:"<<colive_vertices.size()<<"  winning:"<<winning_region.first.size()<<"\n"; 
         return winning_region; /* return winning region */
     }
     
     /* Check if the unsafe edges create some conflict */
-    bool conflict_unsafe(std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set,
-                            std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                            const std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region) {
+    bool conflict_unsafe(std::vector<std::map<size_t, std::set<size_t>>>& live_group_set,
+                            std::map<size_t, std::set<size_t>>& colive_edge_set,
+                            const std::pair<std::set<size_t>, std::set<size_t>> winning_region) {
         for (auto v : winning_region.first){
             if (!edges_.at(v).empty() && check_set_inclusion(edges_.at(v), set_union(winning_region.second, colive_edge_set[v]))){
                 return true; /* return true if there is a conflict */
@@ -317,9 +433,9 @@ public:
     }
 
     /* check conflict when the union of all colive edge set contains all edges of some vertex */
-    void conflict_colive(const std::map<size_t, std::unordered_set<size_t>> colive_edge_set, 
-                        const std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region,
-                        std::unordered_set<size_t>& colive_vertices) {
+    void conflict_colive(const std::map<size_t, std::set<size_t>> colive_edge_set, 
+                        const std::pair<std::set<size_t>, std::set<size_t>> winning_region,
+                        std::set<size_t>& colive_vertices) {
         for (auto it = colive_edge_set.begin(); it != colive_edge_set.end(); it++){
             auto v = it ->first;
             if (winning_region.first.find(v)!= winning_region.first.end() && !edges_.at(v).empty() && check_set_inclusion(edges_.at(v), it->second)){
@@ -330,11 +446,11 @@ public:
     }
 
     /* solve the conflict when the intersection of colive edges and live groups is non-empty */
-    void conflict_live_colive(std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set,
-                                const std::map<size_t, std::unordered_set<size_t>> colive_edge_set,
-                                const std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region,
-                                std::unordered_set<size_t>& colive_vertices) {
-        std::unordered_set<size_t> conflict_keys; /* sources of the possible conflict edges */
+    void conflict_live_colive(std::vector<std::map<size_t, std::set<size_t>>>& live_group_set,
+                                const std::map<size_t, std::set<size_t>> colive_edge_set,
+                                const std::pair<std::set<size_t>, std::set<size_t>> winning_region,
+                                std::set<size_t>& colive_vertices) {
+        std::set<size_t> conflict_keys; /* sources of the possible conflict edges */
         for (auto& live_group : live_group_set){ /* iterate over all live groups */
             for (auto it = colive_edge_set.begin(); it != colive_edge_set.end(); it++){
             auto v = it ->first;
@@ -348,259 +464,6 @@ public:
         }
     }
 
-
-    ///////////////////////////////////////////////////////////////
-    ///Parity games with PUF (permanent unavailability fault)
-    ///////////////////////////////////////////////////////////////
-
-    /* randomly choose a % of PUF edges */
-    std::map<size_t, std::unordered_set<size_t>> generate_PUF_edges(size_t num) const {
-        /* initialize the PUF_edges set */
-        std::map<size_t, std::unordered_set<size_t>>  PUF_edges;
-
-        /* generate PUF edge *num* many times */
-        for (size_t i = 1; i <= num; i++){
-            /* generate random index (with max index as the current number of edges excluding PUF edges) of an edge to add it to PUF_edges */
-            size_t rand_index = random_num(n_edge_-num);
-            size_t counter = 0; /* counter for indices of edges */
-            for (auto u : vertices_){
-                for (auto v : edges_.at(u)){ /* iterate over all edges */
-                    if (PUF_edges[u].find(v) == PUF_edges[u].end()){ /* if (u,v) is not PUF edge */
-                        if (counter == rand_index){ /* if this is the edge at rand_index, then add it to PUF_edges */
-                            PUF_edges[u].insert(v);
-                        }
-                        /* increase the counter as the this edge was not PUF earlier, and hence, not counter before */
-                        counter += 1; 
-                    }
-                }
-            }
-        }
-        return PUF_edges;
-    }
-
-    /* check if it needs re-computation for solving parity games with PUF  */
-    bool need_recomputation_PUF_parity(std::map<size_t, std::unordered_set<size_t>>& PUF_colive_edge_set) const {
-        /* initialize the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
-        auto colive_edge_set = PUF_colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        /* copy the game to not change the original game */
-        MultiGame game_copy = *this; 
-
-        /* compute the initial strategy template with initializing PUF edges as colive (to use it to check implementability) */
-        auto winning_region = game_copy.recursive_strategy_template_parity(colive_edge_set, live_group_set);
-
-        /* compute and add the dead-ends to losing region */
-        game_copy.compute_dead_ends(PUF_colive_edge_set,winning_region);
-
-        /* return true if the template is implementable else false */
-        return game_copy.conflict_unsafe(live_group_set, colive_edge_set, winning_region);
-    }
-
-    /* compute (and add it to losing region) the dead-ends created by the PUF edges and the unsafe edges */
-    int compute_dead_ends(std::map<size_t, std::unordered_set<size_t>>& PUF_colive_edge_set, std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>>& winning_region) {
-        bool need_iteration = true;
-        while (need_iteration){
-            winning_region.first = set_complement(winning_region.second);
-            need_iteration = false;
-            for (auto v : winning_region.first){
-                if (!edges_.at(v).empty() && check_set_inclusion(edges_.at(v), set_union(winning_region.second, PUF_colive_edge_set[v]))){
-                    winning_region.second.insert(v); /* add it to losing region if it is a dead-end */
-                    need_iteration = true;
-                }
-            }  
-        }
-        return 1;              
-    }
-
-
-    /* compute the conflicted vertices due to PUF edges */
-    int conflicts_recomputation_PUF_parity(std::map<size_t, std::unordered_set<size_t>>& PUF_colive_edge_set, std::unordered_set<size_t>& conflicts) const {
-        /* initialize the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
-        auto colive_edge_set = PUF_colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        /* copy the game to not change the original game */
-        MultiGame game_copy = *this; 
-
-        /* compute the initial strategy template with initializing PUF edges as colive (to use it to check implementability) */
-        auto winning_region = game_copy.recursive_strategy_template_parity(colive_edge_set, live_group_set);
-
-        /* compute and add the dead-ends to losing region */
-        game_copy.compute_dead_ends(PUF_colive_edge_set,winning_region);
-
-        /* compute the final conflicts */
-        return game_copy.compute_conflict_unsafe(live_group_set, colive_edge_set, winning_region, conflicts);
-    }
-    /* compute the conflicted vertices due to unsafe edges and colive edges */
-    int compute_conflict_unsafe(std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set,
-                            std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                            const std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region,
-                            std::unordered_set<size_t>& conflicts) {
-        ;
-        for (auto v : winning_region.first){
-            if (!edges_.at(v).empty() && check_set_inclusion(edges_.at(v), set_union(winning_region.second, colive_edge_set[v]))){
-                conflicts.insert(v);
-            }
-        }                
-        for (auto& live_group : live_group_set){ /* iterate over all live groups to compute live_unsafe_region */
-            for (auto v : winning_region.first){
-            if (!live_group[v].empty() &&  check_set_inclusion(live_group[v], set_union(winning_region.second, colive_edge_set[v]))){
-                    conflicts.insert(v);
-                }
-            }
-        }
-        return 1;
-    }
-
-    
-
-
-    ///////////////////////////////////////////////////////////////
-    ///Solve generalized parity games using multi-games
-    ///////////////////////////////////////////////////////////////
-    /* solve generalized parity game  */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> solve_gen_parity() const {
-        /* initialize the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
-        std::map<size_t, std::unordered_set<size_t>> colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        return find_composition_template(unsafe_edges, colive_edge_set, live_group_set);
-    }
-
-    /* solve generalized parity game by adding specs iteratively */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> solve_gen_parity_add_spec(const int iterate = 2) const {
-        /* initialize the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        
-        MultiGame multigame_copy(*this); /* copy of the multi-game */
-        return multigame_copy.recursive_gen_parity_add_spec(iterate, colive_edge_set, live_group_set);
-    }
-
-    /* recursive version of solve_gen_parity_add_spec */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> recursive_gen_parity_add_spec(const int iterate,
-                                std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                                std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set) {
-        // std::cout <<"R\n";
-        if (n_games_ < 2 || iterate == 1){ /* base case */
-            // std::cout <<"B\n";
-            return recursive_composition_template(colive_edge_set, live_group_set);
-        }
-        std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region;
-        /* store the last color to add later */
-        std::map<size_t,size_t> colors = all_colors_[all_colors_.size()-1];
-    
-        /* remove the last set of color */
-        n_games_ -= 1;
-        all_colors_.pop_back();
-        
-        winning_region = recursive_gen_parity_add_spec(iterate-1, colive_edge_set, live_group_set);
-        /* now add the last set of color and solve game using pre-computed template */
-        auto colors2 = colors;
-        colors.clear();
-        for (auto v : winning_region.first){/* restrict the colors to winning vertices only */
-            colors[v] = colors2[v];
-        }
-
-        all_colors_.push_back(colors);
-        n_games_ += 1;
-        remove_vertices(winning_region.second);
-        // std::cout <<"F\n";
-        winning_region = recursive_composition_template(colive_edge_set, live_group_set, true);
-        /* return winning region */
-        return winning_region;
-    }
-
-    ///////////////////////////////////////////////////////////////
-    ///Solve generalized parity games using GenZielonka
-    ///////////////////////////////////////////////////////////////
-    // std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> gen_zielonka() const {
-    //     mpa::MultiGame copy(*this);
-    //     copy.complement();
-    //     std::vector<size_t> maxValues;
-    //     for (size_t i = 0; i < n_games_; i++){
-    //         maxValues.push_back(max_odd(all_colors_[i]));
-    //     }
-    //     return copy.disj_parity_win(maxValues, 0);
-    // }
-
-    // void complement(){
-    //     for (size_t v = 0; v < n_vert_; v++){
-    //         for (size_t i = 0; i < n_games_; i++){
-    //             all_colors_[i].at(v) += 1;
-    //         }
-    //     }
-    //     max_color_ += 1;
-    // }
-
-    // std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> disj_parity_win(const std::vector<size_t> maxValues, const int u){
-    //     /* sanity check: max value of each priority to be odd! */
-    //     for (size_t i = 0; i < n_games_; i++){
-    //         if (maxValues[i] % 2 == 0){
-    //             std::cerr << "Error::disj_parity_win: maxValues are not all odd \n";
-    //         }
-    //     }
-
-    //     if (maxValues == std::vector<size_t>(n_games_,1) || vertices_.empty()){
-    //         return std::make_pair(vertices_, std::unordered_set<size_t>{});
-    //     }
-    //     MultiGame G1;
-    //     MultiGame H1;
-    //     for (size_t i = 0; i < n_games_; i++){
-    //         if (maxValues[i] != 1){
-    //             auto attMaxOdd = solve_reachability_game(i_priority_node_function_j(maxValues[i],i), {V0});
-                
-    //             G1.copy(subgame(attMaxOdd.second));
-    //             auto attMaxEven = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
-                
-    //             H1.copy(G1.subgame(attMaxEven.second));
-                
-    //             while (true){
-    //                 std::vector<size_t> copy_maxValues = maxValues;
-    //                 copy_maxValues[i] -= 2;
-
-    //                 /* sanity check */
-    //                 if (copy_maxValues[i] < 0 || copy_maxValues[i] != maxValues[i]-2){
-    //                     std::cout << "Error::disj_parity_win: copy_maxValues is not correct. \n";
-    //                 }
-
-    //                 auto W1 = H1.disj_parity_win(copy_maxValues, u+1);
-                    
-    //                 if (G1.n_vert_ == 0 || W1.second.size() == H1.n_vert_){
-    //                     if (W1.second.size() == H1.n_vert_ && G1.n_vert_ > 0){
-    //                         auto B = solve_reachability_game(G1.vertices_, {V1});
-                            
-    //                         MultiGame newGame(subgame(B.second));
-    //                         return newGame.disj_parity_win(maxValues, u+1);
-    //                     }
-    //                     else{
-    //                         break;
-    //                     }
-    //                 }
-
-    //                 auto T = G1.solve_reachability_game(W1.first, {V0});
-    //                 G1.remove_vertices(T.second);
-    //                 auto E = G1.solve_reachability_game(i_priority_node_function_j(maxValues[i]-1, i), {V1});
-                    
-    //                 H1.copy(G1.subgame(E.second));
-    //             }
-    //         }
-    //     }
-    //     return std::make_pair(vertices_, std::unordered_set<size_t>{});
-    // }
-
-    // std::unordered_set<size_t> i_priority_node_function_j(size_t i, size_t j){
-    //     std::unordered_set<size_t> result;
-    //     for (auto v : vertices_){
-    //         if (all_colors_[j].at(v) == i){
-    //             result.insert(v);
-    //         }
-    //     }
-    //     return result;
-    // }
-
-    
 
     ///////////////////////////////////////////////////////////////
     ///Solve parity games using multiple {0,1,2,3}-parity games
@@ -641,21 +504,17 @@ public:
     }
 
     /* find strategy template for parity game after converting it to multiple small games */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> find_composed_strategy_template_parity(std::map<size_t, std::unordered_set<size_t>>& unsafe_edges,
-                                    std::map<size_t, std::unordered_set<size_t>>& colive_edge_set,
-                                    std::vector<std::map<size_t, std::unordered_set<size_t>>>& live_group_set) const {
+    std::pair<std::set<size_t>, std::set<size_t>> find_composed_strategy_template_parity(Template& strat) const {
         mpa::MultiGame copy(*this);
         copy.parityToMultigame();
-        return copy.find_composition_template(unsafe_edges, colive_edge_set, live_group_set);
+        return copy.find_composition_template(strat);
     }
     
     /* solve parity game using composition of small games */
-    std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> solve_composed_parity() const {
+    std::pair<std::set<size_t>, std::set<size_t>> solve_composed_parity() const {
         /* initialize the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
-        std::map<size_t, std::unordered_set<size_t>> colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        return find_composed_strategy_template_parity(unsafe_edges, colive_edge_set, live_group_set);
+        Template strat;
+        return find_composed_strategy_template_parity(strat);
     }
 
     
@@ -675,6 +534,14 @@ public:
                 odd_col = col.second+1;
         }
         return odd_col;
+    }
+    size_t max_odd(size_t max_color) const {
+        if (max_color%2 == 1){
+            return max_color;
+        }
+        else{
+            return max_color+1;
+        }
     }
 
     /* function: vec_erase_duplicate
@@ -696,7 +563,7 @@ public:
      *
      * remove vertices from the game */
     
-    void remove_vertices(const std::unordered_set<size_t> set) {
+    void remove_vertices(const std::set<size_t> set) {
         vertices_= set_complement(set);
         n_vert_ = vertices_.size();
         
@@ -722,12 +589,12 @@ public:
      *
      * returns a subgame restricted to this set */
     
-    MultiGame subgame(const std::unordered_set<size_t> set) const{
-        MultiGame game(*this);
+    MultiGame subgame(const std::set<size_t> set) const{
+        MultiGame game = *this;
         game.n_vert_ = set.size();
         game.vertices_= set;
 
-        std::unordered_set<size_t> complement = set_complement(set);
+        std::set<size_t> complement = set_complement(set);
         map_remove_keys(game.vert_id_, complement);
         
         for (auto& colors: game.all_colors_){
@@ -752,12 +619,30 @@ public:
      *
      * remove set of values from one map (set of edges) */
     
-    void map_remove(std::map<size_t, std::unordered_set<size_t>>& map2, const std::map<size_t, std::unordered_set<size_t>> map1) const {
+    void map_remove(std::map<size_t, std::set<size_t>>& map2, const std::map<size_t, std::set<size_t>> map1) const {
         for (auto v = map1.begin(); v != map1.end(); v++){
             map2[v->first] = set_difference(map2[v->first], v->second);
         }
     }
 
+    /* print game informations */
+    int print_game(){
+        if (labels_.empty()){
+            std::cout << "Game constructed! #vertices:"<<n_vert_<<"  #edges:"<<n_edge_;
+            if (n_games_ == 2){
+                std::cout << "  #colors0:"<<all_max_color_[0]+1<<"  #colors1:"<<all_max_color_[1]+1<<"\n";
+                return 0;
+            }
+            size_t max_color = 0;
+            for (size_t i = 1; i<n_games_; i++){
+                max_color = std::max(max_color,all_max_color_[i]);
+            }
+            std::cout << "  #games:"<<n_games_<< "  #colors0:"<<all_max_color_[0]+1<<"  #colors1:"<<max_color+1<<"\n";
+            return 1;
+        }
+        std::cout << "Game constructed! #vertices:"<<n_vert_-n_edge_/2<<"  #edges:"<<n_edge_/2<<"  #colors0:"<<all_max_color_[0]+1<<"  #colors1:"<<all_max_color_[1]+1<<"\n";
+        return 1;
+    }
     
 }; /* close class definition */
 } /* close namespace */

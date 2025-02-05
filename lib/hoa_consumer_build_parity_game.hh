@@ -12,7 +12,7 @@
 #include <iostream>
 #include <limits>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <map>
 #include <queue>
 #include <stack>
@@ -36,18 +36,22 @@ namespace cpphoafparser {
         /* number of edges */
         size_t n_edge;
         /* vertices */
-        std::unordered_set<size_t> vertices;
+        std::set<size_t> vertices;
         /* vertex id: V0, when the vertex belongs to player 0 and V1 when it belongs to player 1 */
         std::map<size_t, size_t> vert_id;
         /* edges as a map from vertices to set of its neighbours */
-        std::map<size_t, std::unordered_set<size_t>> edges;
+        std::map<size_t, std::set<size_t>> edges;
         /* number of colors */
         size_t max_color;
         /* colors of vertices */
         std::map<size_t, size_t> colors;
+        /* 2nd colors of vertices for dist-game */
+        std::map<size_t, size_t> colors2;
+        /* is it a dist-game */
+        bool dist_game = false;
 
         /* pre of edges for original vertices (incoming edges) */
-        std::map<size_t, std::unordered_set<size_t>> pre_edges;
+        std::map<size_t, std::set<size_t>> pre_edges;
         
         /* initial vertex */
         size_t init_vert;
@@ -56,13 +60,10 @@ namespace cpphoafparser {
         /* labels of edges (mid-states) */
         std::map<size_t, std::vector<size_t>> labels;
         /* controllable APs */
-        std::unordered_set<size_t> controllable_ap;
-
-        std::vector<size_t> ap_u; /* ids of ap for perse actions, e.g., u_t for reaching target t */
-        std::vector<size_t> ap_t; /* ids of ap for perse targets */
+        std::set<size_t> controllable_ap;
         
         std::string acc_name;
-        size_t min_col; /* minimum color */
+        size_t minCol;
     };
 
     /**
@@ -89,6 +90,7 @@ namespace cpphoafparser {
 
         virtual void setNumberOfStates(unsigned int numberOfStates) override {
             data_->n_vert = numberOfStates;
+            data_->max_color = 1;
             data_->n_edge = 0;
         }
 
@@ -115,8 +117,8 @@ namespace cpphoafparser {
             //     std::vector<size_t> acc_label;
             //     data_->acc_signature.push_back(acc_label);
             // }
-            
-            data_->min_col = 0;
+
+            data_->minCol = 0;
             std::stack<acceptance_expr::ptr> nodes;
             nodes.push(accExpr);
             while (nodes.size() != 0) {
@@ -133,24 +135,24 @@ namespace cpphoafparser {
                 else if (curr_node->isAtom()){
                     if (curr_node->getAtom().getType() == AtomAcceptance::TEMPORAL_FIN){
                         if (curr_node->getAtom().getAcceptanceSet()%2 == 1){
-                            data_->min_col = 1;
+                            data_->minCol = 1;
                         }
                         else{
-                            data_->min_col = 0;
+                            data_->minCol = 0;
                         }
                     }
                     else if (curr_node->getAtom().getType() == AtomAcceptance::TEMPORAL_INF){
                         if (curr_node->getAtom().getAcceptanceSet()%2 == 0){
-                            data_->min_col = 1;
+                            data_->minCol = 1;
                         }
                         else{
-                            data_->min_col = 0;
+                            data_->minCol = 0;
                         }
                     }
                     break;
                 }
             }
-            data_->max_color = data_->min_col;
+            data_->max_color = data_->minCol;
             UNUSED(numberOfSets);
             // UNUSED(accExpr);
         }
@@ -193,18 +195,6 @@ namespace cpphoafparser {
                     data_->controllable_ap.insert(u.getInteger());
                 }
             }
-
-            if (strcmp(name.c_str(), "AP-u") == 0) {
-                for (auto u : content){
-                    data_->ap_u.push_back(u.getInteger());
-                }
-            }
-
-            if (strcmp(name.c_str(), "AP-t") == 0) {
-                for (auto u : content){
-                    data_->ap_t.push_back(u.getInteger());
-                }
-            }
         }
 
         virtual void notifyBodyStart() override {}
@@ -218,7 +208,8 @@ namespace cpphoafparser {
                 std::cerr << "Error! It is not edge-based acceptance!\n";
             }
             else{
-                data_->colors.insert({id,data_->min_col});
+                data_->colors.insert({id,data_->minCol});
+                data_->colors2.insert({id,data_->minCol});
             }
             
             // if (data_->vert_id[id] == V0){
@@ -261,15 +252,25 @@ namespace cpphoafparser {
                                       std::shared_ptr<int_list> accSignature) override {
             size_t nbrId = conjSuccessors[0];
             size_t color;
+            size_t color2;
             if (accSignature) {
                 std::vector<unsigned int> accSignatureValue = *accSignature.get();
-                color = accSignatureValue[0]+data_->min_col+1;
+                color = accSignatureValue[0]+data_->minCol+1;
                 if (color > data_->max_color){
                     data_->max_color = color;
                 }
+                if (accSignatureValue.size() > 1){
+                    data_->dist_game = true;
+                    color2 = accSignatureValue[1]+data_->minCol+1;
+                    if (color2 > data_->max_color){
+                        data_->max_color = color2;
+                    }
+                }
+                
             }
             else{
-                color = data_->min_col;
+                color = data_->minCol;
+                color2 = data_->minCol;
             }
             std::stack<label_expr::ptr> nodes;
             nodes.push(labelExpr);
@@ -278,11 +279,12 @@ namespace cpphoafparser {
                 data_->n_vert += 1;
                 data_->n_edge += 2;
                 data_->vertices.insert(newId);
-                data_->vert_id[newId] = 1;
+                data_->vert_id[newId] = 2;
                 data_->edges[stateId].insert(newId);
                 data_->edges[newId].insert(nbrId);
                 data_->pre_edges[nbrId].insert(newId);
                 data_->colors.insert({newId,color});
+                data_->colors2.insert({newId,color2});
 
                 std::vector<size_t> edgeLabel(data_->ap_id.size(),2);
                 data_->labels.insert({newId, edgeLabel});
@@ -308,11 +310,12 @@ namespace cpphoafparser {
                     data_->n_vert += 1;
                     data_->n_edge += 2;
                     data_->vertices.insert(newId);
-                    data_->vert_id[newId] = 1;
+                    data_->vert_id[newId] = 2;
                     data_->edges[stateId].insert(newId);
                     data_->edges[newId].insert(nbrId);
                     data_->pre_edges[nbrId].insert(newId);
                     data_->colors.insert({newId,color});
+                    data_->colors2.insert({newId,color2});
 
                     std::vector<size_t> edgeLabel(data_->ap_id.size(),2);
                     while (single_node.size() != 0) {

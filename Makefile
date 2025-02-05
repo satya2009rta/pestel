@@ -11,14 +11,17 @@ CFLAGS 	= -O3 -DNDEBUG
 PRJROOT		= .
 LIBINC		= -I$(PRJROOT)/lib -isystem$(PRJROOT)
 SRC			= $(PRJROOT)/src
+BSRC		= $(PRJROOT)/benchmarking/src
 BUILD		= $(PRJROOT)/build
 
 
+#
+# main executable files
+#
 
+.PHONY: folder pestel pg2gpg pg2randgpg hoa2pg clean
 
-.PHONY: folder pestel pg2gpg pg2randgpg clean
-
-TARGET = folder pestel pg2gpg pg2randgpg 
+TARGET = folder pestel pg2gpg pg2randgpg hoa2pg
 
 build: $(TARGET)
 

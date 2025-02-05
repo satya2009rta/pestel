@@ -5,7 +5,6 @@
  *  It reuires stdin input as which is the description of a (generalized) parity game in extended HOA or pgsolver format; and outputs the result to stdout */
 
 #include "FileHandler.hpp"
-#include "MultiGame.hpp"
 
 void printHelpN(const std::string str) {
         std::cout << "pestel " << str << " is not available.\n";
@@ -48,57 +47,51 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        /* construct the game */
-        std::string game_str; /* game as a string*/
-        mpa::MultiGame G = std2multgame(game_str);
+        /* construct games from stdin */
+        mpa::MultiGame G = std2multigame();
 
         /* print the game if print_game or print_game_pg is true */
         if (print_game_pg){
             multigame2gpg(G);
             std::cout << "===================================================\n";
         } else if (print_game){
-            std::cout << game_str;
+            multigame2std(G);
             std::cout << "\n===================================================\n";
         }
         
-        
-        /* compute and print the strategy template */
-        std::map<size_t, std::unordered_set<size_t>> unsafe_edges;
-        std::map<size_t, std::unordered_set<size_t>> colive_edge_set;
-        std::vector<std::map<size_t, std::unordered_set<size_t>>> live_group_set;
-        std::pair<std::unordered_set<size_t>, std::unordered_set<size_t>> winning_region;
-        std::string part_win;
+        /* compute the strat template */
+        std::pair<std::set<size_t>, std::set<size_t>> winning_region;
 
-        if (G.n_games_ == 1){
-            winning_region = G.find_strategy_template_parity(unsafe_edges, colive_edge_set, live_group_set);
-        }
-        else{
-            winning_region = G.find_composition_template(unsafe_edges, colive_edge_set, live_group_set);
-            part_win = "(partial)";
-        }
+        mpa::Template strat;
+        winning_region = G.find_composition_template(strat);
+        /* remove edge-states from result (needned for HOA formatted games) */
+        G.filter_out_edge_states(winning_region, strat);
 
-        G.print_set(winning_region.first, "Winning Region"+part_win);
-        G.print_edges(unsafe_edges, "Unsafe edges", 1);
-        G.print_edges(colive_edge_set, "Colive edges", 1);
-        G.print_live_groups(live_group_set, "Live groups", 1);
+        G.print_set(winning_region.first, "(Partial) Winning Region");
+        strat.print_template();
         std::cout << "*===================================================\n";
-
+        
         /* print the size of the templates if print_template_size is true */
         if (print_template_size){
-            std::cout << "\n#" << "winning_vertices"<<part_win << ":"<< winning_region.first.size()<< "/"<<G.n_vert_<<"\n";
-            std::cout << "#unsafe_edges:"<< unsafe_edges.size()<<"\n";
-            std::cout << "#colive_edges:"<< colive_edge_set.size()<<"\n";
-            std::cout << "#live_groups:"<< live_group_set.size()<<"\n";
+            std::cout << "\n#winning_vertices:"<< winning_region.first.size()<< "/"<<winning_region.first.size()+winning_region.second.size()<<"\n";
+            strat.print_size();
             std::cout <<"**==================================================\n";
         }
 
-        return 0;
+        if (winning_region.first.find(G.init_vert_) != winning_region.first.end()){
+            std::cout << "REALIZABLE!\n";
+            return 0;
+        }
+        else{
+            std::cout << "UNREALIZABLE!\n";
+            return 1;
+        }
     }
     /* TODO: print the same output in the output file */
     catch (const std::exception &ex) {
         std::cout << ex.what() << "\n";
         printHelp();
-        return 1;
+        return -1;
     }
 }
 

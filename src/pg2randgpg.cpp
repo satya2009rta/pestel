@@ -7,7 +7,6 @@
 
 #include <functional>
 
-#include "MultiGame.hpp"
 #include "FileHandler.hpp"
 
 void printHelp() {
@@ -31,9 +30,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        mpa::MultiGame G;
-        std::string game_str;
-        G.mergeGame(std2game(game_str));
+        mpa::MultiGame G(std2game());
         
         int no_games = std::stoi(argv[1]); /* number of new color sets to be added */
         int rand_max_col = std::stoi(argv[2]); /* maximum color that can be generated */

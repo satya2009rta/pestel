@@ -47,7 +47,7 @@ Inputs/Outputs:
 
 Example usage:
 ```
-./build/pg2gpg < ./examples/test_gpg_02.gpg
+./build/pg2gpg < ./examples/test_hoa_01.hoa
 ```
 
 ### - pg2randgpg

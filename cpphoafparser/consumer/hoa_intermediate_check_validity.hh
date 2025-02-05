@@ -34,7 +34,7 @@
 #include "cpphoafparser/util/implicit_edge_helper.hh"
 #include "cpphoafparser/util/acceptance_repository_standard.hh"
 
-#include <unordered_set>
+#include <set>
 #include <cassert>
 
 namespace cpphoafparser {
@@ -123,7 +123,7 @@ public:
 
     numberOfAPs.reset(new unsigned int(aps.size()));
 
-    std::unordered_set<std::string> apSet;
+    std::set<std::string> apSet;
     for (const std::string& ap : aps) {
       if (apSet.insert(ap).second == false) {
         throw HOAConsumerException("Atomic proposition "+ap+" appears more than once in AP-header");
@@ -736,10 +736,10 @@ protected:
 
 protected:
   /** A set of headers that are supported beyond the standard headers of the format */
-  std::unordered_set<std::string> supportedMiscHeaders;
+  std::set<std::string> supportedMiscHeaders;
 
   /** The header names that have occurred so far in the automaton definition */
-  std::unordered_set<std::string> usedHeaders;
+  std::set<std::string> usedHeaders;
 
   /** The number of states that have been specified in the header (optional) */
   std::shared_ptr<unsigned int > numberOfStates;
@@ -757,7 +757,7 @@ protected:
   dynamic_bitset startStates;
 
   /** The set of alias names that have been defined (Alias-header) */
-  std::unordered_set<std::string> aliases;
+  std::set<std::string> aliases;
   /** Atomic propositions that are referenced in some alias definition */
   dynamic_bitset apsInAliases;
 

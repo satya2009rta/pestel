@@ -6,15 +6,13 @@
 
 #include <functional>
 
-#include "MultiGame.hpp"
 #include "FileHandler.hpp"
 
 int main() {
     try {
-        std::string game_str;
-        mpa::Game G = std2game(game_str);
+        mpa::Game G = std2game();
 
-        /* output to gpg formtat */
+        /* output to pg formtat */
         game2pg(G);
         return 0;
     }
