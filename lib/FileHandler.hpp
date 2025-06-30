@@ -323,7 +323,7 @@ mpa::MultiGame hoa2multigame(std::istream& issr){
     }       
     return G;
 }
-mpa::Game hoa2multigame(const std::string filename){
+mpa::Game hoa2multigame(const std::string& filename){
     std::ifstream file(filename);
     return hoa2multigame(file);
 }
@@ -408,7 +408,7 @@ std::string print_acceptance(const size_t k) {
 /* function: print_label
 *
 * print out the label of state */
-std::string print_label(const mpa::Game G, size_t u, const bool num = true) {
+std::string print_label(const mpa::Game& G, size_t u, const bool num = true) {
     std::string output;
     std::string output_num;
     size_t start = 1;
@@ -448,7 +448,7 @@ std::string print_label(const mpa::Game G, size_t u, const bool num = true) {
 
 /*! print out (to a file if given) the game in hoa format 
  * \param[in] Game  */  
-int game2hoa(const mpa::Game G, std::ostream& ostr = std::cout) {
+int game2hoa(const mpa::Game& G, std::ostream& ostr = std::cout) {
     size_t n_vertices = G.n_vert_ - G.n_edge_/2;
     ostr << "HOA: v1\n";
     ostr << "States: "<< n_vertices << "\n";
@@ -599,7 +599,7 @@ int multigame2std(mpa::MultiGame& G, std::ostream& ostr = std::cout, const std::
 
 /*! output a game to pg format 
  * \param[in] Game  */
-int game2pg(const mpa::Game G, std::ostream& ostr = std::cout){
+int game2pg(const mpa::Game& G, std::ostream& ostr = std::cout){
     mpa::MultiGame G1(G);
     G1.n_games_ = 1;
     G1.all_colors_.push_back(G.colors_);
@@ -609,7 +609,7 @@ int game2pg(const mpa::Game G, std::ostream& ostr = std::cout){
 
 /*! output a game to file/output
  * \param[in] Game  */
-int game2std(mpa::Game G, std::ostream& ostr = std::cout, const std::string format = "hoa"){
+int game2std(mpa::Game& G, std::ostream& ostr = std::cout, const std::string format = "hoa"){
     if (G.labels_.empty() || format != "hoa"){
         return game2pg(G, ostr);
     }

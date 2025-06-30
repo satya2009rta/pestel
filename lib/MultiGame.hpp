@@ -101,7 +101,7 @@ public:
     ///////////////////////////////////////////////////////////////
 
     /* compute product of two games */
-    int product_games(const Game game1, const Game game2, const bool hoa = true) {
+    int product_games(const Game& game1, const Game& game2, const bool hoa = true) {
         *this = MultiGame(); /* clear the game */
         n_games_ = 2; /* number of objective is two */
 
@@ -416,7 +416,7 @@ public:
     /* Check if the unsafe edges create some conflict */
     bool conflict_unsafe(std::vector<std::map<size_t, std::set<size_t>>>& live_group_set,
                             std::map<size_t, std::set<size_t>>& colive_edge_set,
-                            const std::pair<std::set<size_t>, std::set<size_t>> winning_region) {
+                            const std::pair<std::set<size_t>, std::set<size_t>>& winning_region) {
         for (auto v : winning_region.first){
             if (!edges_.at(v).empty() && check_set_inclusion(edges_.at(v), set_union(winning_region.second, colive_edge_set[v]))){
                 return true; /* return true if there is a conflict */
@@ -433,8 +433,8 @@ public:
     }
 
     /* check conflict when the union of all colive edge set contains all edges of some vertex */
-    void conflict_colive(const std::map<size_t, std::set<size_t>> colive_edge_set, 
-                        const std::pair<std::set<size_t>, std::set<size_t>> winning_region,
+    void conflict_colive(const std::map<size_t, std::set<size_t>>& colive_edge_set,
+                        const std::pair<std::set<size_t>, std::set<size_t>>& winning_region,
                         std::set<size_t>& colive_vertices) {
         for (auto it = colive_edge_set.begin(); it != colive_edge_set.end(); it++){
             auto v = it ->first;
@@ -447,8 +447,8 @@ public:
 
     /* solve the conflict when the intersection of colive edges and live groups is non-empty */
     void conflict_live_colive(std::vector<std::map<size_t, std::set<size_t>>>& live_group_set,
-                                const std::map<size_t, std::set<size_t>> colive_edge_set,
-                                const std::pair<std::set<size_t>, std::set<size_t>> winning_region,
+                                const std::map<size_t, std::set<size_t>>& colive_edge_set,
+                                const std::pair<std::set<size_t>, std::set<size_t>>& winning_region,
                                 std::set<size_t>& colive_vertices) {
         std::set<size_t> conflict_keys; /* sources of the possible conflict edges */
         for (auto& live_group : live_group_set){ /* iterate over all live groups */
@@ -525,7 +525,7 @@ public:
     /* function: max_odd
      *
      * return minimum odd color that is greater than or equal to max_color */
-    size_t max_odd(const std::map<size_t, size_t> colors) const {
+    size_t max_odd(const std::map<size_t, size_t>& colors) const {
         size_t odd_col = 1;
         for (auto const & col : colors){
             if (col.second%2 == 1 && col.second > odd_col)
@@ -563,7 +563,7 @@ public:
      *
      * remove vertices from the game */
     
-    void remove_vertices(const std::set<size_t> set) {
+    void remove_vertices(const std::set<size_t>& set) {
         vertices_= set_complement(set);
         n_vert_ = vertices_.size();
         
@@ -589,7 +589,7 @@ public:
      *
      * returns a subgame restricted to this set */
     
-    MultiGame subgame(const std::set<size_t> set) const{
+    MultiGame subgame(const std::set<size_t>& set) const{
         MultiGame game = *this;
         game.n_vert_ = set.size();
         game.vertices_= set;
@@ -619,7 +619,7 @@ public:
      *
      * remove set of values from one map (set of edges) */
     
-    void map_remove(std::map<size_t, std::set<size_t>>& map2, const std::map<size_t, std::set<size_t>> map1) const {
+    void map_remove(std::map<size_t, std::set<size_t>>& map2, const std::map<size_t, std::set<size_t>>& map1) const {
         for (auto v = map1.begin(); v != map1.end(); v++){
             map2[v->first] = set_difference(map2[v->first], v->second);
         }
