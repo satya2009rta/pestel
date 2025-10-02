@@ -43,6 +43,8 @@ public:
     std::set<size_t> controllable_ap_;
     /* name of states */
     std::map<size_t, std::string> state_names_;
+    /* minimum color added for hoa games */
+    size_t min_col_;
 public:
     /* default constructor */
     Game() {

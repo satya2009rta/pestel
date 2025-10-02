@@ -81,6 +81,8 @@ mpa::Game hoa2game(std::istream& issr){
     G.ap_id_ = data.ap_id;
     G.labels_ = data.labels;
     G.controllable_ap_ = data.controllable_ap;
+    G.state_names_ = data.state_names;
+    G.min_col_ = data.minCol;
 
     return G;
 }
@@ -307,6 +309,8 @@ mpa::MultiGame hoa2multigame(std::istream& issr){
     G.vert_id_ = data.vert_id;
     G.max_color_ = data.max_color;
     G.colors_ = data.colors;
+    G.state_names_ = data.state_names;
+    G.min_col_ = data.minCol;
 
     
     G.n_games_ = data.all_colors.size();
@@ -473,9 +477,10 @@ int game2hoa(const mpa::Game& G, std::ostream& ostr = std::cout) {
     for (size_t u = 0; u < n_vertices; u++){
         if (G.vert_id_.at(u) != 2){
             ostr << "State: "<< u;
-            if (!G.state_names_.empty()){
+            if (!G.state_names_.empty() && G.state_names_.at(u) != ""){
                 ostr << " \""<<G.state_names_.at(u)<<"\"";
             }
+            ostr << " {" << G.colors_.at(u)<<"}";
             ostr << "\n";
             for (auto v : G.edges_.at(u)){
                 ostr << "[" << print_label(G,v,true) << "] ";
@@ -527,9 +532,10 @@ int multigame2hoa(mpa::MultiGame& G, std::ostream& ostr = std::cout) {
     for (size_t u = 0; u < n_vertices; u++){
         if (G.vert_id_.at(u) != 2){
             ostr << "State: "<< u;
-            if (!G.state_names_.empty()){
+            if (!G.state_names_.empty() && G.state_names_.at(u) != ""){
                 ostr << " \""<<G.state_names_.at(u)<<"\"";
             }
+            ostr << " {" << G.colors_.at(u)<<"}";
             ostr << "\n";
             for (auto v : G.edges_.at(u)){
                 ostr << "[" << print_label(G,v,true) << "] ";
