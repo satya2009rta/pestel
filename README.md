@@ -27,6 +27,7 @@ Inputs/Outputs:
 - STDOUT: a winning strategy template 
 
 The possible OPTIONs are as follows:
+- --localize: print only a local template for each state in JSON format
 - --print-actions: print the template with actions instead of edges (only for games with labels on edges)
 - --print-game: print the parity game (same format as input)
 - --print-game=pg: print the parity game in pgsolver format

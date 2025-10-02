@@ -18,6 +18,7 @@ void printHelp() {
     std::cout << "- STDOUT: a winning strategy template\n"; 
     std::cout << "\nThe possible OPTIONs are as follows:\n";
     std::cout << "- --help                  Print this help message\n";
+    std::cout << "- --localize              Print only a local template for each state in JSON format\n";
     std::cout << "- --print-actions         Print the template with actions instead of edges (only for games with labels on edges)\n";
     std::cout << "- --print-game            Print the parity game (same format as input)\n";
     std::cout << "- --print-game=pg         Print the parity game in pgsolver format\n";
@@ -32,6 +33,7 @@ int main(int argc, char* argv[]) {
         bool print_game_pg = false; // Flag to determine if game should be printed in pgsolver format
         bool print_template_size = false; // Flag to determine if template size should be printed
         bool print_actions = false; // Flag to determine if labels should be printed
+        bool localize = false; // Flag to determine if only local templates should be printed
 
         for (int i = 1; i < argc; ++i) {
             if (std::string(argv[i]) == "--print-game") {
@@ -42,6 +44,8 @@ int main(int argc, char* argv[]) {
                 print_game_pg = true;
             } else if (std::string(argv[i]) == "--print-actions") {
                 print_actions = true;   
+            } else if (std::string(argv[i]) == "--localize") {
+                localize = true;
             } else if (std::string(argv[i]) == "--help") {
                 printHelp();
                 return 0;
@@ -71,6 +75,12 @@ int main(int argc, char* argv[]) {
         strat.clean();
         /* remove edge-states from result (needned for HOA formatted games) */
         G.filter_out_edge_states(winning_region, strat, print_actions);
+
+        /* if localize is true then print only local templates in JSON format and exit */
+        if (localize){
+            G.print_local_templates(strat, winning_region.first, print_actions);
+            return 0;
+        }
 
         auto str_win = "Winning Region";
         if (G.n_games_ > 1) {

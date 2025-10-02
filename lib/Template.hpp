@@ -17,6 +17,77 @@
 #include <stack> 
 
 namespace mpa {
+/* class for local template for each state */
+class LocalTemplate {
+public:
+    /* state id */
+    size_t state_id_;
+    /* name of the states */
+    std::string state_names_;
+    /* a set of all actions */
+    std::set<std::string> all_actions_;
+    /* set of unsafe actions */
+    std::set<std::string> unsafe_actions_;
+    /* set of colive actions */
+    std::set<std::string> colive_actions_;
+    /* a set of live actions */
+    std::set<std::string> live_actions_;
+    /* set of unrestricted actions */
+    std::set<std::string> unrestricted_actions_;
+    /* preferred actions */
+    std::set<std::string> preferred_actions_;
+public:
+    /* default constructor */
+    LocalTemplate() : state_id_(0), state_names_(""), all_actions_(), unsafe_actions_(), 
+                      colive_actions_(), live_actions_(), unrestricted_actions_(), preferred_actions_() {}
+    
+    /* parameterized constructor */
+    LocalTemplate(const size_t& id, 
+                  const std::string& name, 
+                  const std::set<std::string>& all,
+                  const std::set<std::string>& unsafe, 
+                  const std::set<std::string>& colive,
+                  const std::set<std::string>& live, 
+                  const std::set<std::string>& unrestricted,
+                  const std::set<std::string>& preferred)
+        : state_id_(id), state_names_(name), all_actions_(all),
+          unsafe_actions_(unsafe), colive_actions_(colive), live_actions_(live),
+          unrestricted_actions_(unrestricted), preferred_actions_(preferred) {}
+    
+public:
+    /* print the local template */
+    void print_local_template() const {
+        std::cout << "  {\n";
+        std::cout << "    \"state_id\": " << state_id_ << ",\n";
+        std::cout << "    \"state\": \"" << state_names_ << "\",\n";
+
+        auto print_action_set = [](const std::set<std::string>& actions, const std::string& label) {
+            std::cout << "    \"" << label << "\": [";
+            for (auto it = actions.begin(); it != actions.end(); ++it) {
+                std::cout << *it;
+                if (std::next(it) != actions.end()) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << "]";
+        };
+
+        print_action_set(all_actions_, "all_actions");
+        std::cout << ",\n";
+        print_action_set(unsafe_actions_, "unsafe_actions");
+        std::cout << ",\n";
+        print_action_set(colive_actions_, "colive_actions");
+        std::cout << ",\n";
+        print_action_set(live_actions_, "live_actions");
+        std::cout << ",\n";
+        print_action_set(unrestricted_actions_, "unrestricted_actions");
+        std::cout << ",\n";
+        print_action_set(preferred_actions_, "preferred_actions");
+        std::cout << "\n  }";
+    }
+}; 
+
+/* class for template */
 class Template {
 public:
     /* set of unsafe edges */
@@ -246,7 +317,8 @@ public:
         std::cout << "\n";
         std::cout << "#unsafe_edges:     "<< size_unsafe()<<"\n";
         std::cout << "#colive_edges:     "<< size_colive()<<"\n";
-        std::cout << "#cond_live_groups: "<< size_cond_live() <<"\n";
+        std::cout << "#live_groups:      "<< size_live() <<"\n";
+        // std::cout << "#cond_live_groups: "<< size_cond_live() <<"\n";
     }
 
     

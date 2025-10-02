@@ -282,18 +282,24 @@ public:
     /// Filter all edge-states out (needed for HOA formatted games)
     ///////////////////////////////////////////////////////////////
 
+    /* print_action_edge depending on print_actions and if label exists */
+    std::string print_action_edge(size_t state, bool print_actions) const {
+        if (print_actions && !labels_.empty()) {
+            return "\"" + print_label(state, true) + "\"";
+        }
+        if (labels_.empty()) {
+            return std::to_string(state);
+        }
+        return std::to_string(*edges_.at(state).begin());
+    }
+
     /* update string parts of the template by replacing edge-states by its label or its(only) successor in a set of edges */
     int filter_edges(const std::map<size_t, std::set<size_t>>& edges, std::map<size_t, std::set<std::string>>& edge_string, const bool print_actions=false) const {
         edge_string.clear();
         for (auto& pair : edges){
             std::set<std::string> new_succs;
             for (auto succ : pair.second){
-                if (print_actions){
-                    new_succs.insert("\"" + print_label(succ, true) + "\"");
-                }
-                else{
-                    new_succs.insert(std::to_string(*edges_.at(succ).begin()));
-                }
+                new_succs.insert(print_action_edge(succ, print_actions));
             }
             edge_string.insert(std::make_pair(pair.first, new_succs));
         }
@@ -342,6 +348,86 @@ public:
         filter_templates(strat, org_vertices, print_actions);
         return 1;
     }
+
+
+    ///////////////////////////////////////////////////////////////
+    /// Convert to local templates for each state and print
+    ///////////////////////////////////////////////////////////////
+
+    /* construct a map from state id to its LocalTemplate */
+    std::map<size_t, LocalTemplate> template2local(Template& temp, const std::set<size_t>& winning_states, const bool print_actions=false) const {
+
+        // create a map to hold the local templates
+        std::map<size_t, LocalTemplate> map_local_templates;
+
+        // iterate through each state in the game
+        for (auto state : winning_states){
+            if (vert_id_.at(state) != 0){/* only consider player 0 states */
+                continue;
+            }
+            auto id = state;
+            std::string name = "";
+            if (!state_names_.empty()){
+                name = state_names_.at(state);
+            }
+            
+
+            std::set<size_t> unrestricted;
+            std::set<std::string> all_actions;
+            std::set<std::string> unsafe_actions;
+            std::set<std::string> colive_actions;
+            std::set<std::string> live_actions;
+            std::set<std::string> unrestricted_actions;
+            std::set<std::string> preferred_actions;
+            for (const auto& succ : edges_.at(state)){
+                all_actions.insert(print_action_edge(succ,print_actions));
+                unrestricted.insert(succ);
+            }
+            for (const auto& succ : temp.unsafe_edges_[state]){
+                unsafe_actions.insert(print_action_edge(succ,print_actions));
+                unrestricted.erase(succ);
+            }
+            for (const auto& succ : temp.colive_edges_[state]){
+                colive_actions.insert(print_action_edge(succ,print_actions));
+                unrestricted.erase(succ);
+            }
+            for (auto& live_group : temp.live_groups_){
+                for (const auto& succ : live_group[state]){
+                    live_actions.insert(print_action_edge(succ,print_actions));
+                    unrestricted.erase(succ);
+                }
+            }
+            for (const auto& succ : unrestricted){
+                unrestricted_actions.insert(print_action_edge(succ,print_actions));
+            }
+            /* preferred actions are live actions (if any else unrestricted) */
+            preferred_actions = live_actions;
+            if (preferred_actions.size() == 0){
+                preferred_actions = unrestricted_actions;
+            }
+            map_local_templates[state] = LocalTemplate(id, name, all_actions, unsafe_actions, colive_actions, live_actions, unrestricted_actions, preferred_actions);
+        }
+        return map_local_templates;
+    }
+
+    /* print the local templates */
+    void print_local_templates(Template& temp, const std::set<size_t>& winning_states, const bool print_actions=false) {
+        auto map_local_templates = template2local(temp, winning_states, print_actions);
+        std::cout << "[\n";
+        size_t counter = 0;
+        for (const auto& pair : map_local_templates){
+            pair.second.print_local_template();
+            counter += 1;
+            if (counter < map_local_templates.size()){
+                std::cout << ",\n";
+            }
+            else{
+                std::cout << "\n";
+            }
+        }
+        std::cout << "]\n";
+    }
+
 
     ///////////////////////////////////////////////////////////////
     ///Basic functions
@@ -725,7 +811,6 @@ public:
         }
         return output_num;
     }
-
 
 }; /* close class definition */
 } /* close namespace */
