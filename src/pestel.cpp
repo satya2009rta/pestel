@@ -18,6 +18,7 @@ void printHelp() {
     std::cout << "- STDOUT: a winning strategy template\n"; 
     std::cout << "\nThe possible OPTIONs are as follows:\n";
     std::cout << "- --help                  Print this help message\n";
+    std::cout << "- --print-actions         Print the template with actions instead of edges (only for games with labels on edges)\n";
     std::cout << "- --print-game            Print the parity game (same format as input)\n";
     std::cout << "- --print-game=pg         Print the parity game in pgsolver format\n";
     std::cout << "- --print-template-size   Print size of the templates\n";
@@ -30,6 +31,7 @@ int main(int argc, char* argv[]) {
         bool print_game = false; // Flag to determine if game should be printed (same format as input)
         bool print_game_pg = false; // Flag to determine if game should be printed in pgsolver format
         bool print_template_size = false; // Flag to determine if template size should be printed
+        bool print_actions = false; // Flag to determine if labels should be printed
 
         for (int i = 1; i < argc; ++i) {
             if (std::string(argv[i]) == "--print-game") {
@@ -38,6 +40,8 @@ int main(int argc, char* argv[]) {
                 print_template_size = true;
             } else if (std::string(argv[i]) == "--print-game=pg") {
                 print_game_pg = true;
+            } else if (std::string(argv[i]) == "--print-actions") {
+                print_actions = true;   
             } else if (std::string(argv[i]) == "--help") {
                 printHelp();
                 return 0;
@@ -64,10 +68,17 @@ int main(int argc, char* argv[]) {
 
         mpa::Template strat;
         winning_region = G.find_composition_template(strat);
+        strat.clean();
         /* remove edge-states from result (needned for HOA formatted games) */
-        G.filter_out_edge_states(winning_region, strat);
+        G.filter_out_edge_states(winning_region, strat, print_actions);
 
-        G.print_set(winning_region.first, "(Partial) Winning Region");
+        auto str_win = "Winning Region";
+        if (G.n_games_ > 1) {
+            str_win = "(Partial) Winning Region";
+        }
+        G.print_set(winning_region.first, str_win);
+
+        /* print the strategy template with edges if print_actions is false else with labels */
         strat.print_template();
         std::cout << "*===================================================\n";
         

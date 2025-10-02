@@ -409,46 +409,6 @@ std::string print_acceptance(const size_t k) {
     return output;
 }
 
-/* function: print_label
-*
-* print out the label of state */
-std::string print_label(const mpa::Game& G, size_t u, const bool num = true) {
-    std::string output;
-    std::string output_num;
-    size_t start = 1;
-    for (size_t i = 0; i < G.ap_id_.size(); i++){
-        if (G.labels_.at(u)[i] == 0){
-            if (start == 1){
-                start = 0;
-                output += "!"+G.ap_id_.at(i);
-                output_num += "!" + std::to_string(i);
-            }
-            else{
-                output += " & !"+G.ap_id_.at(i);
-                output_num += "&!" + std::to_string(i);
-            }
-        }
-        else if (G.labels_.at(u)[i] == 1){
-            if (start == 1){
-                start = 0;
-                output += G.ap_id_.at(i);
-                output_num += std::to_string(i);
-            }
-            else{
-                output += " & "+ G.ap_id_.at(i);
-                output_num += "&"+std::to_string(i);
-            }
-        }
-    }
-    if (output.empty()){
-        output = "*";
-        output_num = "t";
-    }
-    if (!num){
-        return output;
-    }
-    return output_num;
-}
 
 /*! print out (to a file if given) the game in hoa format 
  * \param[in] Game  */  
@@ -483,7 +443,7 @@ int game2hoa(const mpa::Game& G, std::ostream& ostr = std::cout) {
             ostr << " {" << G.colors_.at(u)<<"}";
             ostr << "\n";
             for (auto v : G.edges_.at(u)){
-                ostr << "[" << print_label(G,v,true) << "] ";
+                ostr << "[" << G.print_label(v,true) << "] ";
                 ostr << *G.edges_.at(v).begin();
                 ostr << " {" << G.colors_.at(v)<<"}";
                 ostr << "\n";
@@ -538,7 +498,7 @@ int multigame2hoa(mpa::MultiGame& G, std::ostream& ostr = std::cout) {
             ostr << " {" << G.colors_.at(u)<<"}";
             ostr << "\n";
             for (auto v : G.edges_.at(u)){
-                ostr << "[" << print_label(G,v,true) << "] ";
+                ostr << "[" << G.print_label(v,true) << "] ";
                 ostr << *G.edges_.at(v).begin();
                 ostr << " {";
                 // G.all_colors_[0].at(v) << " "<<G.all_colors_[1].at(v);
