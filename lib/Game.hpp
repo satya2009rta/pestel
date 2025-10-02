@@ -302,7 +302,6 @@ public:
 
     /* filter out edge-states in a template */
     int filter_templates(Template& assump, const std::set<size_t>& org_vertices, const bool print_actions=false) const {
-        /* else filter out the edge-states */
         filter_edges(assump.unsafe_edges_, assump.unsafe_strings_, print_actions);
         filter_edges(assump.colive_edges_, assump.colive_strings_, print_actions);
         for (auto& live_group : assump.live_groups_){

@@ -495,8 +495,15 @@ int multigame2hoa(mpa::MultiGame& G, std::ostream& ostr = std::cout) {
             if (!G.state_names_.empty() && G.state_names_.at(u) != ""){
                 ostr << " \""<<G.state_names_.at(u)<<"\"";
             }
-            ostr << " {" << G.colors_.at(u)<<"}";
-            ostr << "\n";
+            ostr << " {";
+            // G.all_colors_[0].at(v) << " "<<G.all_colors_[1].at(v);
+            for (size_t i = 0; i < G.n_games_; i++){
+                ostr << G.all_colors_[i].at(u);
+                if (i < G.n_games_-1){
+                    ostr << " ";
+                }
+            }
+            ostr << "}\n";
             for (auto v : G.edges_.at(u)){
                 ostr << "[" << G.print_label(v,true) << "] ";
                 ostr << *G.edges_.at(v).begin();
